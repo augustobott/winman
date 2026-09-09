@@ -1,0 +1,27 @@
+# Build artifacts & package manager
+.build/
+.swiftpm/
+Packages/
+
+# Xcode & DerivedData
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# App Bundles & Binaries
+*.app/
+*.app
+WinMan.app
+WinMan.App
+
+# macOS system files
+.DS_Store
+*/.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
