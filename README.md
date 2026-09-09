@@ -1,15 +1,25 @@
 # WinMan ⊞
 
+[![CI](https://github.com/augustobott/winman/actions/workflows/ci.yml/badge.svg)](https://github.com/augustobott/winman/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/augustobott/winman?color=blue)](https://github.com/augustobott/winman/releases)
+
 A native macOS super app combining **Easy-Move-Resize**, **Rectangle window snapping**, and **AltTab (Community & Pro Unlocked)** into a single unified utility.
 
 <p align="center">
   <img src="Resources/AppIcon.png" width="160" alt="WinMan App Icon" />
 </p>
 
+## Download
+
+Download the latest version of `WinMan.zip` from the **[GitHub Releases page](https://github.com/augustobott/winman/releases)**.
+
+Unzip `WinMan.zip` and drag `WinMan.app` to your `/Applications` folder!
+
 ## Features
 
 ### 1. Alt-Tab Window Switcher (All Pro Features Unlocked)
 Brings the beloved Windows-style window switcher to macOS with zero paywalls or limitations:
+- **Least Recently Used (MRU) Ordering**: Current window is listed first (#0), followed by the last focused window (#1), 2nd to last (#2), etc. Quick-tap `⌥⇥` toggles seamlessly between your two most recent windows!
 - **Trigger**: Hold `⌥ Option` and press `⇥ Tab` (`⌥⇥`) to display the live visual switcher HUD.
 - **Navigation**:
   - Press `Tab` repeatedly to cycle forward.
