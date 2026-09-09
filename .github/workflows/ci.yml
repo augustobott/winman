@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Verify
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Application Bundle
+        run: make app
+
+      - name: Verify Bundle Integrity
+        run: |
+          test -d WinMan.app
+          test -f WinMan.app/Contents/MacOS/WinMan
+          test -f WinMan.app/Contents/Info.plist
+          echo "WinMan.app verified successfully."
+
+      - name: Test Packaging
+        run: make dist

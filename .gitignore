@@ -25,3 +25,8 @@ WinMan.App
 .Spotlight-V100
 .Trashes
 
+# Release packages
+*.zip
+*.zip.sha256
+*.dmg
+
