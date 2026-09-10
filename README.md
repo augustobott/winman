@@ -3,6 +3,16 @@
 [![CI](https://github.com/augustobott/winman/actions/workflows/ci.yml/badge.svg)](https://github.com/augustobott/winman/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/augustobott/winman?color=blue)](https://github.com/augustobott/winman/releases)
 
+> ### 🐧 Coming from Linux?
+> On Linux desktop environments (GNOME, KDE Plasma, XFCE, Sway/i3), ergonomic window management is second nature:
+> - **Move & Resize from Anywhere**: Hold `Alt` (or `Super`) and drag anywhere inside a window—no pixel-hunting for title bars.
+> - **True Per-Window Alt-Tab**: Cycle through individual application windows, not just top-level app icons.
+> - **Keyboard Snapping & Tiling**: Effortless halves, thirds, and quarters via native hotkeys or lightweight desktop extensions.
+>
+> On macOS, none of this exists out of the box. Restoring that muscle memory typically means finding, installing, and configuring multiple separate utilities and helper extensions.
+>
+> **WinMan** solves this by unifying all three essential capabilities into a single, native, high-performance macOS app.
+
 A native macOS super app combining **Easy-Move-Resize**, **Rectangle window snapping**, and **AltTab (Community & Pro Unlocked)** into a single unified utility.
 
 <p align="center">

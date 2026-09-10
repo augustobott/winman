@@ -245,7 +245,10 @@ public final class AltTabEngine {
         WindowFocusTracker.shared.updateFrontmostFocus()
         let prefs = PreferencesManager.shared
         let windows = WindowListManager.shared.fetchOpenWindows(scope: prefs.altTabScope)
-        guard !windows.isEmpty else { return }
+        guard !windows.isEmpty else {
+            self.isSwitcherActive = false
+            return
+        }
         
         self.allWindows = windows
         self.filteredWindows = windows
