@@ -100,9 +100,9 @@ public final class PreferencesManager: ObservableObject {
         defaults.register(defaults: [
             keyEasyMoveResizeEnabled: true,
             keyHotkeySnapEnabled: true,
-            keyMoveCmd: true,
+            keyMoveCmd: false,
             keyMoveCtrl: true,
-            keyMoveOpt: false,
+            keyMoveOpt: true,
             keyMoveShift: false,
             keyResizeWithRightClick: true,
             keyResizeWithShift: true,
@@ -118,9 +118,9 @@ public final class PreferencesManager: ObservableObject {
         self.easyMoveResizeEnabled = defaults.object(forKey: keyEasyMoveResizeEnabled) as? Bool ?? true
         self.hotkeySnapEnabled = defaults.object(forKey: keyHotkeySnapEnabled) as? Bool ?? true
         
-        self.moveCmd = defaults.object(forKey: keyMoveCmd) as? Bool ?? true
+        self.moveCmd = defaults.object(forKey: keyMoveCmd) as? Bool ?? false
         self.moveCtrl = defaults.object(forKey: keyMoveCtrl) as? Bool ?? true
-        self.moveOpt = defaults.object(forKey: keyMoveOpt) as? Bool ?? false
+        self.moveOpt = defaults.object(forKey: keyMoveOpt) as? Bool ?? true
         self.moveShift = defaults.object(forKey: keyMoveShift) as? Bool ?? false
         self.resizeWithRightClick = defaults.object(forKey: keyResizeWithRightClick) as? Bool ?? true
         self.resizeWithShift = defaults.object(forKey: keyResizeWithShift) as? Bool ?? true
