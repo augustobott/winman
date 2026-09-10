@@ -5,8 +5,14 @@ import Combine
 public final class PreferencesManager: ObservableObject {
     public static let shared = PreferencesManager()
     
-    // Dedicated persistent UserDefaults suite
-    private let defaults = UserDefaults(suiteName: "com.winman.WinMan") ?? UserDefaults.standard
+    // Dedicated persistent UserDefaults
+    private let defaults = UserDefaults.standard
+    
+    private func persist(_ value: Any?, forKey key: String) {
+        defaults.set(value, forKey: key)
+        defaults.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+    }
     
     // Keys
     private let keyEasyMoveResizeEnabled = "easyMoveResizeEnabled"
@@ -33,42 +39,42 @@ public final class PreferencesManager: ObservableObject {
     // Engine toggles
     @Published public var easyMoveResizeEnabled: Bool {
         didSet {
-            defaults.set(easyMoveResizeEnabled, forKey: keyEasyMoveResizeEnabled)
+            persist(easyMoveResizeEnabled, forKey: keyEasyMoveResizeEnabled)
             EasyMoveResizeEngine.shared.isEnabled = easyMoveResizeEnabled
         }
     }
     
     @Published public var hotkeySnapEnabled: Bool {
         didSet {
-            defaults.set(hotkeySnapEnabled, forKey: keyHotkeySnapEnabled)
+            persist(hotkeySnapEnabled, forKey: keyHotkeySnapEnabled)
             HotkeySnapEngine.shared.isEnabled = hotkeySnapEnabled
         }
     }
     
     // Modifier keys
     @Published public var moveCmd: Bool {
-        didSet { defaults.set(moveCmd, forKey: keyMoveCmd) }
+        didSet { persist(moveCmd, forKey: keyMoveCmd) }
     }
     @Published public var moveCtrl: Bool {
-        didSet { defaults.set(moveCtrl, forKey: keyMoveCtrl) }
+        didSet { persist(moveCtrl, forKey: keyMoveCtrl) }
     }
     @Published public var moveOpt: Bool {
-        didSet { defaults.set(moveOpt, forKey: keyMoveOpt) }
+        didSet { persist(moveOpt, forKey: keyMoveOpt) }
     }
     @Published public var moveShift: Bool {
-        didSet { defaults.set(moveShift, forKey: keyMoveShift) }
+        didSet { persist(moveShift, forKey: keyMoveShift) }
     }
     
     @Published public var resizeWithRightClick: Bool {
-        didSet { defaults.set(resizeWithRightClick, forKey: keyResizeWithRightClick) }
+        didSet { persist(resizeWithRightClick, forKey: keyResizeWithRightClick) }
     }
     @Published public var resizeWithShift: Bool {
-        didSet { defaults.set(resizeWithShift, forKey: keyResizeWithShift) }
+        didSet { persist(resizeWithShift, forKey: keyResizeWithShift) }
     }
     
     @Published public var menuBarIconStyle: MenuBarIconStyle {
         didSet {
-            defaults.set(menuBarIconStyle.rawValue, forKey: keyMenuBarIconStyle)
+            persist(menuBarIconStyle.rawValue, forKey: keyMenuBarIconStyle)
             NotificationCenter.default.post(name: PreferencesManager.iconChangedNotification, object: nil)
         }
     }
@@ -76,24 +82,24 @@ public final class PreferencesManager: ObservableObject {
     // Alt-Tab Preferences
     @Published public var altTabEnabled: Bool {
         didSet {
-            defaults.set(altTabEnabled, forKey: keyAltTabEnabled)
+            persist(altTabEnabled, forKey: keyAltTabEnabled)
             AltTabEngine.shared.isEnabled = altTabEnabled
         }
     }
     @Published public var altTabShowThumbnails: Bool {
-        didSet { defaults.set(altTabShowThumbnails, forKey: keyAltTabShowThumbnails) }
+        didSet { persist(altTabShowThumbnails, forKey: keyAltTabShowThumbnails) }
     }
     @Published public var altTabEnableSearch: Bool {
-        didSet { defaults.set(altTabEnableSearch, forKey: keyAltTabEnableSearch) }
+        didSet { persist(altTabEnableSearch, forKey: keyAltTabEnableSearch) }
     }
     @Published public var altTabEnableQuickNumbers: Bool {
-        didSet { defaults.set(altTabEnableQuickNumbers, forKey: keyAltTabEnableQuickNumbers) }
+        didSet { persist(altTabEnableQuickNumbers, forKey: keyAltTabEnableQuickNumbers) }
     }
     @Published public var altTabScope: AltTabScope {
-        didSet { defaults.set(altTabScope.rawValue, forKey: keyAltTabScope) }
+        didSet { persist(altTabScope.rawValue, forKey: keyAltTabScope) }
     }
     @Published public var altTabThumbnailSize: AltTabThumbnailSize {
-        didSet { defaults.set(altTabThumbnailSize.rawValue, forKey: keyAltTabThumbnailSize) }
+        didSet { persist(altTabThumbnailSize.rawValue, forKey: keyAltTabThumbnailSize) }
     }
     
     private init() {
@@ -172,5 +178,7 @@ public final class PreferencesManager: ObservableObject {
         self.moveCtrl = ctrl
         self.moveOpt = opt
         self.moveShift = shift
+        defaults.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
 }

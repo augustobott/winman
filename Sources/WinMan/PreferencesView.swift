@@ -150,7 +150,7 @@ public struct PreferencesView: View {
                 Spacer()
                 
                 Button("Reset Defaults") {
-                    prefs.setPreset(cmd: true, ctrl: true, opt: false, shift: false)
+                    prefs.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
                     prefs.resizeWithRightClick = true
                     prefs.resizeWithShift = true
                     prefs.menuBarIconStyle = .monochrome
@@ -171,7 +171,7 @@ public struct PreferencesView: View {
     }
 }
 
-public final class PreferencesWindowController: NSWindowController {
+public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     public static let shared = PreferencesWindowController()
     
     private init() {
@@ -187,6 +187,7 @@ public final class PreferencesWindowController: NSWindowController {
         window.contentView = hostingView
         window.isReleasedWhenClosed = false
         super.init(window: window)
+        window.delegate = self
     }
     
     required init?(coder: NSCoder) {
@@ -197,5 +198,10 @@ public final class PreferencesWindowController: NSWindowController {
         guard let window = self.window else { return }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+    
+    public func windowWillClose(_ notification: Notification) {
+        UserDefaults.standard.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
 }
