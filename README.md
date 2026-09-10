@@ -19,7 +19,7 @@ Unzip `WinMan.zip` and drag `WinMan.app` to your `/Applications` folder!
 
 ### 1. Alt-Tab Window Switcher (All Pro Features Unlocked)
 Brings the beloved Windows-style window switcher to macOS with zero paywalls or limitations:
-- **Least Recently Used (MRU) Ordering**: Current window is listed first (#0), followed by the last focused window (#1), 2nd to last (#2), etc. Quick-tap `⌥⇥` toggles seamlessly between your two most recent windows!
+- **Most Recently Used (MRU) Ordering**: Current window is listed first (#0), followed by the last focused window (#1), 2nd to last (#2), etc. Quick-tap `⌥⇥` toggles seamlessly between your two most recent windows!
 - **Trigger**: Hold `⌥ Option` and press `⇥ Tab` (`⌥⇥`) to display the live visual switcher HUD.
 - **Navigation**:
   - Press `Tab` repeatedly to cycle forward.

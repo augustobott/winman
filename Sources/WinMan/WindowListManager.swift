@@ -80,7 +80,7 @@ public final class WindowListManager {
             windows.append(winInfo)
         }
         
-        // Sort windows by Least Recently Used (MRU order):
+        // Sort windows by Most Recently Used (MRU order):
         // Current window is listed first (index 0), then the last focused (index 1), then 2nd to last (index 2), etc.
         return WindowFocusTracker.shared.sortWindowsByMRU(windows)
     }

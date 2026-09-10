@@ -133,6 +133,7 @@ public final class AltTabEngine {
         // State 1: Switcher NOT active -> Detect Option + Tab trigger
         if !isSwitcherActive {
             if hasOption && keyCode == KeyCode.tab {
+                self.isSwitcherActive = true // Set synchronously to prevent race conditions with key repeats
                 DispatchQueue.main.async {
                     self.openSwitcher(reverse: hasShift)
                 }
