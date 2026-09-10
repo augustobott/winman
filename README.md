@@ -50,7 +50,7 @@ Brings the beloved Windows-style window switcher to macOS with zero paywalls or 
 
 ### 2. Easy-Move-Resize (Drag from Anywhere)
 No need to carefully aim for the window's title bar:
-- **Move**: Hold your selected modifier keys (Default: `⌘ + ⌃`, configurable to `⌥ + ⌘`, `⌃ + ⌥`, or custom) and **Left-Click & Drag** anywhere inside any window.
+- **Move**: Hold your selected modifier keys (Default: `⌃ + ⌥`, configurable to `⌘ + ⌃`, `⌥ + ⌘`, or custom) and **Left-Click & Drag** anywhere inside any window.
 - **Resize**: Hold modifier keys and **Right-Click & Drag** anywhere inside any window to dynamically resize it from the nearest edge/corner.
 - **Trackpad-friendly Resize**: Hold modifier keys + `⇧` (Shift) and **Left-Click & Drag** to resize.
 - **Custom Modifiers**: Change modifiers on the fly from the Menu Bar submenu or open the **Preferences...** (`⌘,`) window!
