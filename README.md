@@ -116,3 +116,13 @@ Window managers on macOS require Accessibility permissions to resize windows, sw
 1. When you first launch `WinMan`, macOS will prompt you to grant Accessibility access.
 2. If prompted, click **Open System Settings** (or navigate to **System Settings -> Privacy & Security -> Accessibility**).
 3. Toggle the switch next to **WinMan** (or your terminal application if running via `swift run`) to **ON**.
+
+---
+
+## Credits
+
+WinMan combines and is heavily inspired by the phenomenal work done by the open-source community. Special thanks to:
+
+* **[Rectangle](https://github.com/rxhanson/Rectangle)**: For the inspiration behind the keyboard shortcut window snapping and management mechanics.
+* **[AltTab](https://github.com/lwouis/alt-tab-macos)**: For the inspiration behind the visual window switcher HUD and window discovery techniques.
+* **[Easy Move+Resize](https://github.com/dmarcotte/easy-move-resize)**: For the inspiration behind the global modifier-drag window manipulation.
