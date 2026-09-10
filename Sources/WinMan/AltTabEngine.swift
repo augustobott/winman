@@ -294,6 +294,13 @@ public final class AltTabEngine {
         }
     }
     
+    public func select(at index: Int) {
+        guard index >= 0 && index < filteredWindows.count else { return }
+        self.selectedIndex = index
+        SwitcherOverlayController.shared.selectedIndex = index
+        WindowHighlightPanel.shared.highlight(bounds: filteredWindows[index].bounds)
+    }
+    
     private func selectAndCommit(index: Int) {
         guard index >= 0 && index < filteredWindows.count else { return }
         self.selectedIndex = index

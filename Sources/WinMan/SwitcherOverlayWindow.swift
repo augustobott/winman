@@ -42,10 +42,18 @@ public final class SwitcherOverlayController: ObservableObject {
         self.searchQuery = ""
         self.showQuickNumbers = showNumbers
         self.thumbnailSize = PreferencesManager.shared.altTabThumbnailSize
-        
-        guard let p = panel, let screen = NSScreen.main else { return }
+
+        guard let p = panel else { return }
+
+        // Use the screen containing the mouse cursor — this is the standard macOS
+        // way to find the display the user is actively working on. It requires no
+        // AX calls and is always correct at hotkey-press time.
+        let mouseLocation = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
+                     ?? NSScreen.main
+        guard let screen else { return }
         let screenFrame = screen.visibleFrame
-        
+
         let tSize = PreferencesManager.shared.altTabThumbnailSize
         let tileW = tSize.tileWidth
         let tileH = tSize.previewHeight + 56
@@ -53,11 +61,11 @@ public final class SwitcherOverlayController: ObservableObject {
         let padding: CGFloat = 28
         let headerHeight: CGFloat = 40
         let footerHeight: CGFloat = 36
-        
+
         // Calculate optimal columns and rows for available screen space
         let maxColsForScreen = max(4, Int(floor((screenFrame.width * 0.92 - padding * 2) / (tileW + spacing))))
         let count = max(1, windows.count)
-        
+
         let columns: Int
         if count <= 6 {
             columns = count
@@ -68,25 +76,25 @@ public final class SwitcherOverlayController: ObservableObject {
         } else {
             columns = min(maxColsForScreen, 8)
         }
-        
+
         let rows = max(1, Int(ceil(Double(count) / Double(columns))))
-        // Limit max visible rows to what fits without dominating 85% of screen
         let maxVisibleRows = max(1, Int(floor((screenFrame.height * 0.85 - padding * 2 - headerHeight - footerHeight) / (tileH + spacing))))
         let visibleRows = min(rows, maxVisibleRows)
-        
+
         let calculatedWidth = CGFloat(columns) * tileW + CGFloat(columns - 1) * spacing + padding * 2
         let calculatedHeight = CGFloat(visibleRows) * tileH + CGFloat(visibleRows - 1) * spacing + padding * 2 + headerHeight + footerHeight
-        
+
         let targetWidth = min(screenFrame.width * 0.94, max(560, calculatedWidth))
         let targetHeight = min(screenFrame.height * 0.88, max(260, calculatedHeight))
-        
+
         let originX = screenFrame.origin.x + (screenFrame.width - targetWidth) / 2
         let originY = screenFrame.origin.y + (screenFrame.height - targetHeight) / 2
-        
+
         p.setFrame(NSRect(x: originX, y: originY, width: targetWidth, height: targetHeight), display: true)
         p.orderFrontRegardless()
     }
-    
+
+
     public func dismiss() {
         panel?.orderOut(nil)
         self.windows = []
@@ -160,7 +168,7 @@ struct SwitcherOverlayView: View {
                             )
                             .id(index)
                             .onTapGesture {
-                                controller.selectedIndex = index
+                                AltTabEngine.shared.select(at: index)
                             }
                         }
                     }
