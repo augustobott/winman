@@ -5,7 +5,7 @@ import ApplicationServices
 @_silgen_name("_AXUIElementGetWindow")
 func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
 
-/// Tracks window focus history across all applications to provide true Least Recently Used (LRU / MRU)
+/// Tracks window focus history across all applications to provide true Most Recently Used (MRU)
 /// ordering for the window switcher. The currently focused window is always at index 0,
 /// the previously focused window is at index 1, the 2nd to last at index 2, etc.
 public final class WindowFocusTracker {
@@ -138,19 +138,47 @@ public final class WindowFocusTracker {
         self.observedPid = 0
     }
     
-    /// Sorts the discovered windows by MRU (Least Recently Used) order:
-    /// The currently focused window is at index 0, the last focused window at index 1,
-    /// the 2nd to last at index 2, etc. Any windows not yet focused in this session
-    /// are appended after focused windows preserving their original WindowServer z-order.
     public func sortWindowsByMRU(_ windows: [SwitcherWindowInfo]) -> [SwitcherWindowInfo] {
         lock.lock()
         let order = self.focusOrder
         lock.unlock()
         
-        return windows.enumerated().sorted { a, b in
-            let rankA = order.firstIndex(of: a.element.id) ?? (10000 + a.offset)
-            let rankB = order.firstIndex(of: b.element.id) ?? (10000 + b.offset)
-            return rankA < rankB
-        }.map { $0.element }
+        // Build a fallback ranking that interleaves applications.
+        // First, discover the application z-order and each window's index within its application.
+        var pidOrder: [pid_t] = []
+        var windowRankWithinApp: [CGWindowID: Int] = [:]
+        var appWindowCounts: [pid_t: Int] = [:]
+        
+        for win in windows {
+            if !pidOrder.contains(win.pid) {
+                pidOrder.append(win.pid)
+            }
+            let count = appWindowCounts[win.pid] ?? 0
+            windowRankWithinApp[win.id] = count
+            appWindowCounts[win.pid] = count + 1
+        }
+        
+        return windows.sorted { a, b in
+            if let rankA = order.firstIndex(of: a.id), let rankB = order.firstIndex(of: b.id) {
+                return rankA < rankB
+            } else if order.contains(a.id) {
+                return true
+            } else if order.contains(b.id) {
+                return false
+            }
+            
+            // Both are unknown: interleave them.
+            // Primary sort: window index within its app (0th windows first, then 1st windows, etc.)
+            // Secondary sort: application z-order
+            let aWinRank = windowRankWithinApp[a.id] ?? 0
+            let bWinRank = windowRankWithinApp[b.id] ?? 0
+            if aWinRank != bWinRank {
+                return aWinRank < bWinRank
+            }
+            
+            let aPidRank = pidOrder.firstIndex(of: a.pid) ?? 0
+            let bPidRank = pidOrder.firstIndex(of: b.pid) ?? 0
+            return aPidRank < bPidRank
+        }
     }
 }
