@@ -28,9 +28,6 @@ public final class WindowListManager {
         var windows: [SwitcherWindowInfo] = []
         var seenWindowIds = Set<CGWindowID>()
         
-        // Cache running applications by PID
-        let runningApps = Dictionary(uniqueKeysWithValues: NSWorkspace.shared.runningApplications.map { ($0.processIdentifier, $0) })
-        
         // Fast pass: collect valid windows
         for dict in infoList {
             guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
@@ -51,15 +48,26 @@ public final class WindowListManager {
                 continue
             }
             
+            // Filter out known dummy/ghost windows placed at offscreen coordinates (e.g. dummy windows at (0, 1390))
+            if bounds.origin.x == 0 && bounds.origin.y >= 1390 && bounds.width <= 500 && bounds.height <= 500 {
+                continue
+            }
+
+            // For windows marked as not on screen, filter out small auxiliary popups, dropdowns, and search bubbles
+            let isOnScreen = dict[kCGWindowIsOnscreen as String] as? Bool ?? false
+            if !isOnScreen && (bounds.width < 300 || bounds.height < 150) {
+                continue
+            }
+            
             // Check app
-            guard let app = runningApps[pid], app.activationPolicy == .regular else { continue }
+            guard let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular else { continue }
             
             seenWindowIds.insert(windowId)
             
             let appName = app.localizedName ?? (dict[kCGWindowOwnerName as String] as? String ?? "App")
             let winTitle = dict[kCGWindowName as String] as? String ?? ""
             let displayTitle = winTitle.isEmpty ? appName : winTitle
-            let appIcon = app.icon
+            let appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
             
             // Check cache for recent thumbnail (< 4 seconds old)
             var cachedThumb: NSImage? = nil
@@ -106,13 +114,14 @@ public final class WindowListManager {
                 
                 guard needsCapture else { continue }
                 
+                // Using .null for screenBounds captures ONLY the specified window rather than the composite screen rectangle.
                 if let cgImage = CGWindowListCreateImage(
-                    win.bounds,
+                    .null,
                     .optionIncludingWindow,
                     win.id,
                     [.boundsIgnoreFraming]
                 ) {
-                    let thumb = NSImage(cgImage: cgImage, size: win.bounds.size)
+                    let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
                     self.cacheQueue.sync {
                         // Evict the oldest entry if the cache is at its limit.
                         if self.thumbnailCache[win.id] == nil {
