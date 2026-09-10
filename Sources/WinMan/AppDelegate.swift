@@ -314,6 +314,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     @objc private func quitApp() {
+        UserDefaults.standard.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         NSApplication.shared.terminate(nil)
+    }
+    
+    public func applicationWillTerminate(_ notification: Notification) {
+        UserDefaults.standard.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
 }
