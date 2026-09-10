@@ -26,8 +26,8 @@ public final class MenuBarIconManager {
         // Check for bundled MenuBarIconColor.png
         if let resourceURL = Bundle.main.url(forResource: "MenuBarIconColor@2x", withExtension: "png") ??
                              Bundle.main.url(forResource: "MenuBarIconColor", withExtension: "png"),
-           let image = NSImage(contentsOf: resourceURL) {
-            let img = image.copy() as! NSImage
+           let image = NSImage(contentsOf: resourceURL),
+           let img = image.copy() as? NSImage {
             img.size = NSSize(width: 18, height: 18)
             img.isTemplate = false
             return img
@@ -36,16 +36,16 @@ public final class MenuBarIconManager {
         // Check Resources directory relative to executable
         let exeURL = Bundle.main.executableURL
         let resourcesURL = exeURL?.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/MenuBarIconColor.png")
-        if let url = resourcesURL, let image = NSImage(contentsOf: url) {
-            let img = image.copy() as! NSImage
+        if let url = resourcesURL, let image = NSImage(contentsOf: url),
+           let img = image.copy() as? NSImage {
             img.size = NSSize(width: 18, height: 18)
             img.isTemplate = false
             return img
         }
         
         // Fallback: load AppIcon
-        if let appIcon = NSApp.applicationIconImage {
-            let img = appIcon.copy() as! NSImage
+        if let appIcon = NSApplication.shared.applicationIconImage,
+           let img = appIcon.copy() as? NSImage {
             img.size = NSSize(width: 18, height: 18)
             img.isTemplate = false
             return img

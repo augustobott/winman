@@ -247,17 +247,21 @@ public final class HotkeySnapEngine {
             if let current = window.frame {
                 let nw = min(w, current.width * 1.1)
                 let nh = min(h, current.height * 1.1)
-                let nx = max(x0, current.origin.x - (nw - current.width) / 2)
-                let ny = max(y0, current.origin.y - (nh - current.height) / 2)
+                var nx = current.origin.x - (nw - current.width) / 2
+                var ny = current.origin.y - (nh - current.height) / 2
+                nx = min(max(x0, nx), x0 + w - nw)
+                ny = min(max(y0, ny), y0 + h - nh)
                 targetRect = CGRect(x: nx, y: ny, width: nw, height: nh)
             }
             
         case .decreaseSize:
             if let current = window.frame {
-                let nw = max(150, current.width * 0.9)
-                let nh = max(150, current.height * 0.9)
-                let nx = current.origin.x + (current.width - nw) / 2
-                let ny = current.origin.y + (current.height - nh) / 2
+                let nw = max(150, min(w, current.width * 0.9))
+                let nh = max(150, min(h, current.height * 0.9))
+                var nx = current.origin.x + (current.width - nw) / 2
+                var ny = current.origin.y + (current.height - nh) / 2
+                nx = min(max(x0, nx), x0 + w - nw)
+                ny = min(max(y0, ny), y0 + h - nh)
                 targetRect = CGRect(x: nx, y: ny, width: nw, height: nh)
             }
             

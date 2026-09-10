@@ -16,6 +16,11 @@ let package = Package(
         .executableTarget(
             name: "WinMan",
             path: "Sources/WinMan"
+        ),
+        .testTarget(
+            name: "WinManTests",
+            dependencies: ["WinMan"],
+            path: "Tests/WinManTests"
         )
     ]
 )

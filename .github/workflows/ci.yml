@@ -18,6 +18,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Run Unit Tests
+        run: swift test
+
       - name: Build Application Bundle
         run: make app
 
