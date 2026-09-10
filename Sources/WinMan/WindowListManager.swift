@@ -6,10 +6,13 @@ import ApplicationServices
 public final class WindowListManager {
     public static let shared = WindowListManager()
     
-    // Thumbnail cache with timestamp
+    // Thumbnail cache with timestamp.
+    // Capped at `maxThumbnailCacheSize` entries; oldest entry is evicted when the cap is reached.
     private var thumbnailCache: [CGWindowID: (image: NSImage, timestamp: Date)] = [:]
+    private var thumbnailCacheOrder: [CGWindowID] = []   // insertion-order for eviction
+    private static let maxThumbnailCacheSize = 100
     private let cacheQueue = DispatchQueue(label: "com.winman.thumbnailCache")
-    
+
     private init() {}
     
     public func fetchOpenWindows(scope: AltTabScope = .allSpaces) -> [SwitcherWindowInfo] {
@@ -111,6 +114,15 @@ public final class WindowListManager {
                 ) {
                     let thumb = NSImage(cgImage: cgImage, size: win.bounds.size)
                     self.cacheQueue.sync {
+                        // Evict the oldest entry if the cache is at its limit.
+                        if self.thumbnailCache[win.id] == nil {
+                            if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
+                               let oldest = self.thumbnailCacheOrder.first {
+                                self.thumbnailCache.removeValue(forKey: oldest)
+                                self.thumbnailCacheOrder.removeFirst()
+                            }
+                            self.thumbnailCacheOrder.append(win.id)
+                        }
                         self.thumbnailCache[win.id] = (thumb, Date())
                     }
                     DispatchQueue.main.async {
@@ -121,83 +133,109 @@ public final class WindowListManager {
         }
     }
     
+    // MARK: - AX Window Lookup
+
+    /// Returns the `AXUIElement` for the specific window identified by `window.id`.
+    /// Matches by `CGWindowID` first (precise), then by window bounds/frame (geometric match),
+    /// then falls back to title matching (best-effort).
+    /// Returns `nil` when no match is found.
+    private func targetAXWindow(for window: SwitcherWindowInfo) -> AXUIElement? {
+        let appElement = AXUIElementCreateApplication(window.pid)
+        var winList: AnyObject?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
+              let axWindows = winList as? [AXUIElement], !axWindows.isEmpty else { return nil }
+
+        // 1. Precise match by CGWindowID
+        for axWin in axWindows {
+            var wid: CGWindowID = 0
+            if _AXUIElementGetWindow(axWin, &wid) == .success && wid == window.id {
+                return axWin
+            }
+        }
+
+        // 2. Geometric match by window bounds (position & size)
+        // AX coordinates and CGWindowList bounds share the same Quartz coordinate space.
+        for axWin in axWindows {
+            let axWindowObj = AXWindow(element: axWin)
+            if let axFrame = axWindowObj.frame {
+                let originDelta = abs(axFrame.origin.x - window.bounds.origin.x) + abs(axFrame.origin.y - window.bounds.origin.y)
+                let sizeDelta = abs(axFrame.size.width - window.bounds.size.width) + abs(axFrame.size.height - window.bounds.size.height)
+                if originDelta < 15 && sizeDelta < 15 {
+                    return axWin
+                }
+            }
+        }
+
+        // 3. Best-effort fallback: match by title
+        for axWin in axWindows {
+            var titleVal: AnyObject?
+            if AXUIElementCopyAttributeValue(axWin, kAXTitleAttribute as CFString, &titleVal) == .success,
+               let t = titleVal as? String, !t.isEmpty {
+                if t == window.title || window.title.contains(t) || t.contains(window.title) {
+                    return axWin
+                }
+            }
+        }
+
+        return nil
+    }
+
     // MARK: - Window Actions
-    
+
     public func activate(window: SwitcherWindowInfo) {
         WindowFocusTracker.shared.recordFocus(windowId: window.id)
-        
         guard let app = NSRunningApplication(processIdentifier: window.pid) else { return }
-        app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-        
+
         let appElement = AXUIElementCreateApplication(window.pid)
-        var winList: AnyObject?
-        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
-           let axWindows = winList as? [AXUIElement] {
-            var targetAXWin: AXUIElement? = nil
-            for win in axWindows {
-                var wid: CGWindowID = 0
-                if _AXUIElementGetWindow(win, &wid) == .success && wid == window.id {
-                    targetAXWin = win
-                    break
-                }
-            }
-            if targetAXWin == nil {
-                for win in axWindows {
-                    var titleVal: AnyObject?
-                    if AXUIElementCopyAttributeValue(win, kAXTitleAttribute as CFString, &titleVal) == .success,
-                       let t = titleVal as? String, t == window.title {
-                        targetAXWin = win
-                        break
-                    }
-                }
-            }
-            let el = targetAXWin ?? axWindows.first
-            if let el = el {
-                AXUIElementPerformAction(el, kAXRaiseAction as CFString)
-                AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, el)
+        var axWinToRaise = targetAXWindow(for: window)
+
+        // Fallback for activate: if no exact match, grab the app's first AX window
+        if axWinToRaise == nil {
+            var winList: AnyObject?
+            if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
+               let axWindows = winList as? [AXUIElement] {
+                axWinToRaise = axWindows.first
             }
         }
+
+        // Activate the application process without disrupting other windows
+        app.activate(options: [.activateIgnoringOtherApps])
+
+        // Raise and focus the specific window via AX.
+        if let axWin = axWinToRaise {
+            AXUIElementPerformAction(axWin, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, axWin)
+            AXUIElementSetAttributeValue(appElement, kAXMainWindowAttribute as CFString, axWin)
+        }
     }
-    
+
     public func close(window: SwitcherWindowInfo) {
-        let appElement = AXUIElementCreateApplication(window.pid)
-        var winList: AnyObject?
-        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
-           let axWindows = winList as? [AXUIElement], let first = axWindows.first {
-            var closeButton: AnyObject?
-            if AXUIElementCopyAttributeValue(first, kAXCloseButtonAttribute as CFString, &closeButton) == .success,
-               let btn = closeButton {
-                AXUIElementPerformAction((btn as! AXUIElement), kAXPressAction as CFString)
-            }
+        guard let axWin = targetAXWindow(for: window) else { return }
+        var closeButton: AnyObject?
+        if AXUIElementCopyAttributeValue(axWin, kAXCloseButtonAttribute as CFString, &closeButton) == .success,
+           let btn = closeButton {
+            AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
         }
     }
-    
+
     public func minimize(window: SwitcherWindowInfo) {
-        let appElement = AXUIElementCreateApplication(window.pid)
-        var winList: AnyObject?
-        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
-           let axWindows = winList as? [AXUIElement], let first = axWindows.first {
-            AXUIElementSetAttributeValue(first, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
-        }
+        guard let axWin = targetAXWindow(for: window) else { return }
+        AXUIElementSetAttributeValue(axWin, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
     }
-    
+
     public func toggleFullscreen(window: SwitcherWindowInfo) {
-        let appElement = AXUIElementCreateApplication(window.pid)
-        var winList: AnyObject?
-        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
-           let axWindows = winList as? [AXUIElement], let first = axWindows.first {
-            var fullScreenBtn: AnyObject?
-            if AXUIElementCopyAttributeValue(first, kAXFullScreenButtonAttribute as CFString, &fullScreenBtn) == .success,
-               let btn = fullScreenBtn {
-                AXUIElementPerformAction((btn as! AXUIElement), kAXPressAction as CFString)
-            }
+        guard let axWin = targetAXWindow(for: window) else { return }
+        var fullScreenBtn: AnyObject?
+        if AXUIElementCopyAttributeValue(axWin, kAXFullScreenButtonAttribute as CFString, &fullScreenBtn) == .success,
+           let btn = fullScreenBtn {
+            AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
         }
     }
-    
+
     public func quit(window: SwitcherWindowInfo) {
         NSRunningApplication(processIdentifier: window.pid)?.terminate()
     }
-    
+
     public func hide(window: SwitcherWindowInfo) {
         NSRunningApplication(processIdentifier: window.pid)?.hide()
     }
