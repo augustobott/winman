@@ -1,6 +1,7 @@
 import AppKit
 
+// Explicit module-scoped strong reference so AppDelegate is never deallocated prematurely
 let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
+let appDelegate = AppDelegate()
+app.delegate = appDelegate
 app.run()
