@@ -24,15 +24,22 @@ public struct WindowRect {
 public final class AXWindow {
     public let element: AXUIElement
     
-    // Cache for window frame history to support Restore / Unmaximize
-    private static var restoreHistory: [Int: CGRect] = [:]
+    // Cache for window frame history to support Restore / Unmaximize (capped to prevent memory growth)
+    private static var restoreHistory: [CGWindowID: CGRect] = [:]
+    private static var restoreHistoryOrder: [CGWindowID] = []
     
     public init(element: AXUIElement) {
         self.element = element
     }
     
-    public var id: Int {
-        return Int(CFHash(element))
+    public var id: CGWindowID {
+        var wid: CGWindowID = 0
+        if _AXUIElementGetWindow(element, &wid) == .success && wid != 0 {
+            return wid
+        }
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        return CGWindowID(truncatingIfNeeded: CFHash(element) ^ UInt(bitPattern: Int(pid)))
     }
     
     public var frame: CGRect? {
@@ -83,7 +90,15 @@ public final class AXWindow {
     @discardableResult
     public func setFrame(_ rect: CGRect, saveCurrentForRestore: Bool = false) -> Bool {
         if saveCurrentForRestore, let current = frame {
-            AXWindow.restoreHistory[id] = current
+            let winId = id
+            if AXWindow.restoreHistory[winId] == nil {
+                if AXWindow.restoreHistoryOrder.count >= 100 {
+                    let oldest = AXWindow.restoreHistoryOrder.removeFirst()
+                    AXWindow.restoreHistory.removeValue(forKey: oldest)
+                }
+                AXWindow.restoreHistoryOrder.append(winId)
+            }
+            AXWindow.restoreHistory[winId] = current
         }
         // Set position, then size, then position again to handle constraint adjustments
         setPosition(rect.origin)
@@ -92,12 +107,14 @@ public final class AXWindow {
     }
     
     public func restorePreviousFrame() -> Bool {
-        guard let previous = AXWindow.restoreHistory[id] else {
+        let winId = id
+        guard let previous = AXWindow.restoreHistory[winId] else {
             return false
         }
         let success = setFrame(previous, saveCurrentForRestore: false)
         if success {
-            AXWindow.restoreHistory.removeValue(forKey: id)
+            AXWindow.restoreHistory.removeValue(forKey: winId)
+            AXWindow.restoreHistoryOrder.removeAll { $0 == winId }
         }
         return success
     }
