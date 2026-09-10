@@ -43,7 +43,8 @@ public final class AXWindow {
     public var position: CGPoint? {
         var value: AnyObject?
         let result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &value)
-        guard result == .success, let axVal = value as! AXValue? else { return nil }
+        guard result == .success, let val = value, CFGetTypeID(val) == AXValueGetTypeID() else { return nil }
+        let axVal = val as! AXValue
         var point = CGPoint.zero
         if AXValueGetValue(axVal, .cgPoint, &point) {
             return point
@@ -54,7 +55,8 @@ public final class AXWindow {
     public var size: CGSize? {
         var value: AnyObject?
         let result = AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &value)
-        guard result == .success, let axVal = value as! AXValue? else { return nil }
+        guard result == .success, let val = value, CFGetTypeID(val) == AXValueGetTypeID() else { return nil }
+        let axVal = val as! AXValue
         var sz = CGSize.zero
         if AXValueGetValue(axVal, .cgSize, &sz) {
             return sz
@@ -108,7 +110,7 @@ public final class AXWindow {
         
         var focusedWindow: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindow)
-        if result == .success, let win = focusedWindow {
+        if result == .success, let win = focusedWindow, CFGetTypeID(win) == AXUIElementGetTypeID() {
             return AXWindow(element: win as! AXUIElement)
         }
         
@@ -143,14 +145,14 @@ public final class AXWindow {
             // Check kAXWindowAttribute
             var winObj: AnyObject?
             if AXUIElementCopyAttributeValue(el, kAXWindowAttribute as CFString, &winObj) == .success,
-               let win = winObj {
+               let win = winObj, CFGetTypeID(win) == AXUIElementGetTypeID() {
                 return AXWindow(element: win as! AXUIElement)
             }
             
             // Climb to parent
             var parent: AnyObject?
             if AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
-               let p = parent {
+               let p = parent, CFGetTypeID(p) == AXUIElementGetTypeID() {
                 current = (p as! AXUIElement)
             } else {
                 break

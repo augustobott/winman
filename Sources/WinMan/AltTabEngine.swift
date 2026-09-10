@@ -219,15 +219,13 @@ public final class AltTabEngine {
         // Live Search Handling
         if prefs.altTabEnableSearch {
             if keyCode == KeyCode.backspace {
-                if !searchQuery.isEmpty {
-                    DispatchQueue.main.async {
-                        self.searchQuery.removeLast()
-                        self.applySearchFilter()
-                    }
-                    return nil
+                DispatchQueue.main.async {
+                    guard !self.searchQuery.isEmpty else { return }
+                    self.searchQuery.removeLast()
+                    self.applySearchFilter()
                 }
-            } else if let chars = event.characters, !chars.isEmpty {
-                let firstChar = chars.first!
+                return nil
+            } else if let chars = event.characters, let firstChar = chars.first {
                 if firstChar.isLetter || firstChar.isNumber || firstChar == " " {
                     DispatchQueue.main.async {
                         self.searchQuery.append(firstChar)

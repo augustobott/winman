@@ -222,7 +222,7 @@ public final class WindowListManager {
         guard let axWin = targetAXWindow(for: window) else { return }
         var closeButton: AnyObject?
         if AXUIElementCopyAttributeValue(axWin, kAXCloseButtonAttribute as CFString, &closeButton) == .success,
-           let btn = closeButton {
+           let btn = closeButton, CFGetTypeID(btn) == AXUIElementGetTypeID() {
             AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
         }
     }
@@ -236,7 +236,7 @@ public final class WindowListManager {
         guard let axWin = targetAXWindow(for: window) else { return }
         var fullScreenBtn: AnyObject?
         if AXUIElementCopyAttributeValue(axWin, kAXFullScreenButtonAttribute as CFString, &fullScreenBtn) == .success,
-           let btn = fullScreenBtn {
+           let btn = fullScreenBtn, CFGetTypeID(btn) == AXUIElementGetTypeID() {
             AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
         }
     }

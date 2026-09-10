@@ -34,10 +34,13 @@ jobs:
             TAG="${{ github.event.inputs.tag_name }}"
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${{ github.ref_name }}"
-          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
-            TAG="latest"
           else
-            TAG="v1.0.0"
+            VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist 2>/dev/null || echo "")
+            if [ -n "${VERSION}" ]; then
+              TAG="v${VERSION}"
+            else
+              TAG="latest"
+            fi
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
@@ -70,5 +73,6 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

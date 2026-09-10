@@ -80,7 +80,7 @@ public final class WindowFocusTracker {
         let appElement = AXUIElementCreateApplication(pid)
         var focusedWin: AnyObject?
         if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWin) == .success,
-           let win = focusedWin {
+           let win = focusedWin, CFGetTypeID(win) == AXUIElementGetTypeID() {
             var wid: CGWindowID = 0
             if _AXUIElementGetWindow(win as! AXUIElement, &wid) == .success && wid != 0 {
                 recordFocus(windowId: wid)
