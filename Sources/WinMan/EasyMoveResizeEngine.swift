@@ -92,12 +92,25 @@ public final class EasyMoveResizeEngine {
         let prefs = PreferencesManager.shared
         let targetMoveFlags = prefs.moveModifiersMask
         
-        guard !targetMoveFlags.isEmpty else {
+        let isMoveMatch = (!targetMoveFlags.isEmpty && currentFlags == targetMoveFlags) ||
+                          (currentFlags == [.maskCommand, .maskAlternate]) ||
+                          (currentFlags == [.maskControl, .maskAlternate])
+        
+        let isShiftResizeMatch = (prefs.resizeWithShift && !prefs.moveShift) && (
+            (!targetMoveFlags.isEmpty && currentFlags == targetMoveFlags.union(.maskShift)) ||
+            (currentFlags == [.maskCommand, .maskAlternate, .maskShift]) ||
+            (currentFlags == [.maskControl, .maskAlternate, .maskShift])
+        )
+        
+        guard isMoveMatch || isShiftResizeMatch else {
+            if type == .leftMouseDown {
+                // Normal click on a window - track focus after activation settles
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    WindowFocusTracker.shared.updateFrontmostFocus()
+                }
+            }
             return Unmanaged.passRetained(event)
         }
-        
-        let isMoveMatch = (currentFlags == targetMoveFlags)
-        let isShiftResizeMatch = prefs.resizeWithShift && (!prefs.moveShift) && (currentFlags == targetMoveFlags.union(.maskShift))
         
         let mouseLocation = event.location
         

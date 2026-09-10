@@ -39,7 +39,13 @@ public struct PreferencesView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Button("⌃ + ⌥ (Default)") {
+                    Button("⌥ + ⌘ (Default)") {
+                        prefs.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("⌃ + ⌥") {
                         prefs.setPreset(cmd: false, ctrl: true, opt: true, shift: false)
                     }
                     .buttonStyle(.bordered)
@@ -47,12 +53,6 @@ public struct PreferencesView: View {
                     
                     Button("⌘ + ⌃") {
                         prefs.setPreset(cmd: true, ctrl: true, opt: false, shift: false)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("⌥ + ⌘") {
-                        prefs.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
