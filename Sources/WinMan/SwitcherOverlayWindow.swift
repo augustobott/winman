@@ -166,7 +166,7 @@ struct SwitcherOverlayView: View {
                                 showNumberBadge: controller.showQuickNumbers && index < 9,
                                 previewHeight: controller.thumbnailSize.previewHeight
                             )
-                            .id(index)
+                            .id(window.id)
                             .onTapGesture {
                                 AltTabEngine.shared.select(at: index)
                             }
@@ -175,8 +175,10 @@ struct SwitcherOverlayView: View {
                     .padding(4)
                 }
                 .onChange(of: controller.selectedIndex) { newIndex in
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        proxy.scrollTo(newIndex, anchor: .center)
+                    if newIndex >= 0 && newIndex < controller.windows.count {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            proxy.scrollTo(controller.windows[newIndex].id, anchor: .center)
+                        }
                     }
                 }
             }

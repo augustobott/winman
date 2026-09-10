@@ -273,7 +273,14 @@ public final class AltTabEngine {
         
         // Load live thumbnails asynchronously in background
         if prefs.altTabShowThumbnails {
-            WindowListManager.shared.loadThumbnailsAsync(for: allWindows) { wid, thumb in
+            WindowListManager.shared.loadThumbnailsAsync(for: allWindows) { [weak self] wid, thumb in
+                guard let self = self else { return }
+                if let idx = self.allWindows.firstIndex(where: { $0.id == wid }) {
+                    self.allWindows[idx].thumbnail = thumb
+                }
+                if let idx = self.filteredWindows.firstIndex(where: { $0.id == wid }) {
+                    self.filteredWindows[idx].thumbnail = thumb
+                }
                 SwitcherOverlayController.shared.updateThumbnail(windowId: wid, thumbnail: thumb)
             }
         }
