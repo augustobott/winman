@@ -42,6 +42,7 @@ Brings the beloved Windows-style window switcher to macOS with zero paywalls or 
 - **⚡️ In-Switcher Window Actions**:
   - `W`: Close the selected window
   - `M`: Minimize the selected window
+  - `H`: Hide the target application
   - `F`: Toggle Fullscreen / Maximize
   - `Q`: Quit the target application
 

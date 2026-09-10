@@ -152,16 +152,28 @@ public final class AltTabEngine {
             return nil
         }
         
-        // Arrow Navigation
-        if keyCode == KeyCode.rightArrow || keyCode == KeyCode.downArrow {
+        // 2D Grid Arrow Navigation
+        if keyCode == KeyCode.rightArrow {
             DispatchQueue.main.async {
-                self.cycleSelection(reverse: false)
+                self.navigateGrid(deltaX: 1, deltaY: 0)
             }
             return nil
         }
-        if keyCode == KeyCode.leftArrow || keyCode == KeyCode.upArrow {
+        if keyCode == KeyCode.leftArrow {
             DispatchQueue.main.async {
-                self.cycleSelection(reverse: true)
+                self.navigateGrid(deltaX: -1, deltaY: 0)
+            }
+            return nil
+        }
+        if keyCode == KeyCode.downArrow {
+            DispatchQueue.main.async {
+                self.navigateGrid(deltaX: 0, deltaY: 1)
+            }
+            return nil
+        }
+        if keyCode == KeyCode.upArrow {
+            DispatchQueue.main.async {
+                self.navigateGrid(deltaX: 0, deltaY: -1)
             }
             return nil
         }
@@ -182,8 +194,8 @@ public final class AltTabEngine {
             return nil
         }
         
-        // Direct 1-9 Jump
-        if prefs.altTabEnableQuickNumbers, let numberIndex = numberIndex(from: keyCode) {
+        // Direct 1-9 Jump (suppressed during active search so digits can be typed into query)
+        if prefs.altTabEnableQuickNumbers && searchQuery.isEmpty, let numberIndex = numberIndex(from: keyCode) {
             DispatchQueue.main.async {
                 self.selectAndCommit(index: numberIndex)
             }
@@ -200,6 +212,12 @@ public final class AltTabEngine {
         if keyCode == KeyCode.m {
             DispatchQueue.main.async {
                 self.minimizeSelectedWindow()
+            }
+            return nil
+        }
+        if keyCode == KeyCode.h {
+            DispatchQueue.main.async {
+                self.hideSelectedApp()
             }
             return nil
         }
@@ -302,6 +320,32 @@ public final class AltTabEngine {
         }
     }
     
+    private func navigateGrid(deltaX: Int, deltaY: Int) {
+        guard !filteredWindows.isEmpty else { return }
+        let count = filteredWindows.count
+        let cols = max(1, SwitcherOverlayController.shared.currentColumnCount)
+        
+        var newIndex = selectedIndex
+        if deltaX != 0 {
+            newIndex = (selectedIndex + deltaX + count) % count
+        } else if deltaY != 0 {
+            let target = selectedIndex + (deltaY * cols)
+            if target >= 0 && target < count {
+                newIndex = target
+            } else if target >= count {
+                let col = selectedIndex % cols
+                newIndex = min(col, count - 1)
+            } else if target < 0 {
+                let col = selectedIndex % cols
+                let lastRowStart = (count - 1) / cols * cols
+                let candidate = lastRowStart + col
+                newIndex = candidate < count ? candidate : count - 1
+            }
+        }
+        
+        select(at: newIndex)
+    }
+    
     public func select(at index: Int) {
         guard index >= 0 && index < filteredWindows.count else { return }
         self.selectedIndex = index
@@ -367,6 +411,19 @@ public final class AltTabEngine {
         let win = filteredWindows[selectedIndex]
         WindowListManager.shared.toggleFullscreen(window: win)
         commitSelection()
+    }
+    
+    private func hideSelectedApp() {
+        guard selectedIndex >= 0 && selectedIndex < filteredWindows.count else { return }
+        let win = filteredWindows[selectedIndex]
+        WindowListManager.shared.hide(window: win)
+        
+        allWindows.removeAll { $0.pid == win.pid }
+        applySearchFilter()
+        
+        if filteredWindows.isEmpty {
+            cancelSwitcher()
+        }
     }
     
     private func quitSelectedApp() {

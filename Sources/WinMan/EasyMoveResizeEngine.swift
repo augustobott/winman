@@ -147,7 +147,8 @@ public final class EasyMoveResizeEngine {
                 if let window = activeWindow {
                     let dx = mouseLocation.x - initialMouseLocation.x
                     let dy = mouseLocation.y - initialMouseLocation.y
-                    let newOrigin = CGPoint(x: initialWindowFrame.origin.x + dx, y: initialWindowFrame.origin.y + dy)
+                    let proposed = CGPoint(x: initialWindowFrame.origin.x + dx, y: initialWindowFrame.origin.y + dy)
+                    let newOrigin = clampedMoveOrigin(proposed, windowSize: initialWindowFrame.size)
                     window.setPosition(newOrigin)
                     return nil
                 }
@@ -219,5 +220,23 @@ public final class EasyMoveResizeEngine {
         
         let newRect = CGRect(x: newX, y: newY, width: newWidth, height: newHeight)
         window.setFrame(newRect, saveCurrentForRestore: false)
+    }
+    
+    private func clampedMoveOrigin(_ proposed: CGPoint, windowSize: CGSize) -> CGPoint {
+        let minVisible: CGFloat = 60
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return proposed }
+        
+        let allAXFrames = screens.map { AXWindow.screenAXVisibleFrame($0) }
+        guard let minX = allAXFrames.map({ $0.minX }).min(),
+              let maxX = allAXFrames.map({ $0.maxX }).max(),
+              let minY = allAXFrames.map({ $0.minY }).min(),
+              let maxY = allAXFrames.map({ $0.maxY }).max() else {
+            return proposed
+        }
+        
+        let clampedX = min(max(proposed.x, minX - windowSize.width + minVisible), maxX - minVisible)
+        let clampedY = min(max(proposed.y, minY), maxY - minVisible)
+        return CGPoint(x: clampedX, y: clampedY)
     }
 }

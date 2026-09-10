@@ -10,6 +10,7 @@ public final class SwitcherOverlayController: ObservableObject {
     @Published public var searchQuery: String = ""
     @Published public var showQuickNumbers: Bool = true
     @Published public var thumbnailSize: AltTabThumbnailSize = .medium
+    @Published public var currentColumnCount: Int = 5
     
     private var panel: NSPanel?
     
@@ -76,6 +77,7 @@ public final class SwitcherOverlayController: ObservableObject {
         } else {
             columns = min(maxColsForScreen, 8)
         }
+        self.currentColumnCount = columns
 
         let rows = max(1, Int(ceil(Double(count) / Double(columns))))
         let maxVisibleRows = max(1, Int(floor((screenFrame.height * 0.85 - padding * 2 - headerHeight - footerHeight) / (tileH + spacing))))
@@ -119,9 +121,7 @@ struct SwitcherOverlayView: View {
     
     var body: some View {
         let tileWidth = controller.thumbnailSize.tileWidth
-        let gridColumns = [
-            GridItem(.adaptive(minimum: tileWidth, maximum: tileWidth + 30), spacing: 14)
-        ]
+        let gridColumns = Array(repeating: GridItem(.fixed(tileWidth), spacing: 14), count: max(1, controller.currentColumnCount))
         
         VStack(spacing: 12) {
             // Header Bar: Window Count & Live Search
