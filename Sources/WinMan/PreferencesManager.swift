@@ -34,7 +34,6 @@ public final class PreferencesManager: ObservableObject {
     @Published public var easyMoveResizeEnabled: Bool {
         didSet {
             defaults.set(easyMoveResizeEnabled, forKey: keyEasyMoveResizeEnabled)
-            defaults.synchronize()
             EasyMoveResizeEngine.shared.isEnabled = easyMoveResizeEnabled
         }
     }
@@ -42,36 +41,34 @@ public final class PreferencesManager: ObservableObject {
     @Published public var hotkeySnapEnabled: Bool {
         didSet {
             defaults.set(hotkeySnapEnabled, forKey: keyHotkeySnapEnabled)
-            defaults.synchronize()
             HotkeySnapEngine.shared.isEnabled = hotkeySnapEnabled
         }
     }
     
     // Modifier keys
     @Published public var moveCmd: Bool {
-        didSet { defaults.set(moveCmd, forKey: keyMoveCmd); defaults.synchronize() }
+        didSet { defaults.set(moveCmd, forKey: keyMoveCmd) }
     }
     @Published public var moveCtrl: Bool {
-        didSet { defaults.set(moveCtrl, forKey: keyMoveCtrl); defaults.synchronize() }
+        didSet { defaults.set(moveCtrl, forKey: keyMoveCtrl) }
     }
     @Published public var moveOpt: Bool {
-        didSet { defaults.set(moveOpt, forKey: keyMoveOpt); defaults.synchronize() }
+        didSet { defaults.set(moveOpt, forKey: keyMoveOpt) }
     }
     @Published public var moveShift: Bool {
-        didSet { defaults.set(moveShift, forKey: keyMoveShift); defaults.synchronize() }
+        didSet { defaults.set(moveShift, forKey: keyMoveShift) }
     }
     
     @Published public var resizeWithRightClick: Bool {
-        didSet { defaults.set(resizeWithRightClick, forKey: keyResizeWithRightClick); defaults.synchronize() }
+        didSet { defaults.set(resizeWithRightClick, forKey: keyResizeWithRightClick) }
     }
     @Published public var resizeWithShift: Bool {
-        didSet { defaults.set(resizeWithShift, forKey: keyResizeWithShift); defaults.synchronize() }
+        didSet { defaults.set(resizeWithShift, forKey: keyResizeWithShift) }
     }
     
     @Published public var menuBarIconStyle: MenuBarIconStyle {
         didSet {
             defaults.set(menuBarIconStyle.rawValue, forKey: keyMenuBarIconStyle)
-            defaults.synchronize()
             NotificationCenter.default.post(name: PreferencesManager.iconChangedNotification, object: nil)
         }
     }
@@ -80,24 +77,23 @@ public final class PreferencesManager: ObservableObject {
     @Published public var altTabEnabled: Bool {
         didSet {
             defaults.set(altTabEnabled, forKey: keyAltTabEnabled)
-            defaults.synchronize()
             AltTabEngine.shared.isEnabled = altTabEnabled
         }
     }
     @Published public var altTabShowThumbnails: Bool {
-        didSet { defaults.set(altTabShowThumbnails, forKey: keyAltTabShowThumbnails); defaults.synchronize() }
+        didSet { defaults.set(altTabShowThumbnails, forKey: keyAltTabShowThumbnails) }
     }
     @Published public var altTabEnableSearch: Bool {
-        didSet { defaults.set(altTabEnableSearch, forKey: keyAltTabEnableSearch); defaults.synchronize() }
+        didSet { defaults.set(altTabEnableSearch, forKey: keyAltTabEnableSearch) }
     }
     @Published public var altTabEnableQuickNumbers: Bool {
-        didSet { defaults.set(altTabEnableQuickNumbers, forKey: keyAltTabEnableQuickNumbers); defaults.synchronize() }
+        didSet { defaults.set(altTabEnableQuickNumbers, forKey: keyAltTabEnableQuickNumbers) }
     }
     @Published public var altTabScope: AltTabScope {
-        didSet { defaults.set(altTabScope.rawValue, forKey: keyAltTabScope); defaults.synchronize() }
+        didSet { defaults.set(altTabScope.rawValue, forKey: keyAltTabScope) }
     }
     @Published public var altTabThumbnailSize: AltTabThumbnailSize {
-        didSet { defaults.set(altTabThumbnailSize.rawValue, forKey: keyAltTabThumbnailSize); defaults.synchronize() }
+        didSet { defaults.set(altTabThumbnailSize.rawValue, forKey: keyAltTabThumbnailSize) }
     }
     
     private init() {
@@ -176,6 +172,5 @@ public final class PreferencesManager: ObservableObject {
         self.moveCtrl = ctrl
         self.moveOpt = opt
         self.moveShift = shift
-        defaults.synchronize()
     }
 }

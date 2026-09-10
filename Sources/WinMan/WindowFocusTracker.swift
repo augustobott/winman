@@ -34,8 +34,23 @@ public final class WindowFocusTracker {
             object: nil
         )
         
+        // Listen for application termination events to clean up observers
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAppTerminated(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
+        
         // Initial recording of frontmost window
         updateFrontmostFocus()
+    }
+    
+    public func stop() {
+        guard isStarted else { return }
+        isStarted = false
+        detachAxObserver()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
     @objc private func handleAppActivated(_ notification: Notification) {
@@ -43,6 +58,13 @@ public final class WindowFocusTracker {
             updateFocus(for: app)
         } else {
             updateFrontmostFocus()
+        }
+    }
+    
+    @objc private func handleAppTerminated(_ notification: Notification) {
+        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+           app.processIdentifier == observedPid {
+            detachAxObserver()
         }
     }
     
@@ -119,6 +141,10 @@ public final class WindowFocusTracker {
                 DispatchQueue.main.async {
                     tracker.recordFocus(windowId: wid)
                 }
+            } else {
+                DispatchQueue.main.async {
+                    tracker.updateFrontmostFocus()
+                }
             }
         }
         
@@ -143,15 +169,19 @@ public final class WindowFocusTracker {
         let order = self.focusOrder
         lock.unlock()
         
-        // Build a fallback ranking that interleaves applications.
-        // First, discover the application z-order and each window's index within its application.
-        var pidOrder: [pid_t] = []
+        var focusRank: [CGWindowID: Int] = [:]
+        for (index, id) in order.enumerated() {
+            focusRank[id] = index
+        }
+        
+        // Build an O(1) fallback ranking that interleaves applications.
+        var pidRank: [pid_t: Int] = [:]
         var windowRankWithinApp: [CGWindowID: Int] = [:]
         var appWindowCounts: [pid_t: Int] = [:]
         
         for win in windows {
-            if !pidOrder.contains(win.pid) {
-                pidOrder.append(win.pid)
+            if pidRank[win.pid] == nil {
+                pidRank[win.pid] = pidRank.count
             }
             let count = appWindowCounts[win.pid] ?? 0
             windowRankWithinApp[win.id] = count
@@ -159,11 +189,14 @@ public final class WindowFocusTracker {
         }
         
         return windows.sorted { a, b in
-            if let rankA = order.firstIndex(of: a.id), let rankB = order.firstIndex(of: b.id) {
-                return rankA < rankB
-            } else if order.contains(a.id) {
+            let rankA = focusRank[a.id]
+            let rankB = focusRank[b.id]
+            
+            if let rA = rankA, let rB = rankB {
+                return rA < rB
+            } else if rankA != nil {
                 return true
-            } else if order.contains(b.id) {
+            } else if rankB != nil {
                 return false
             }
             
@@ -176,8 +209,8 @@ public final class WindowFocusTracker {
                 return aWinRank < bWinRank
             }
             
-            let aPidRank = pidOrder.firstIndex(of: a.pid) ?? 0
-            let bPidRank = pidOrder.firstIndex(of: b.pid) ?? 0
+            let aPidRank = pidRank[a.pid] ?? 0
+            let bPidRank = pidRank[b.pid] ?? 0
             return aPidRank < bPidRank
         }
     }

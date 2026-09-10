@@ -208,7 +208,11 @@ public final class WindowListManager {
         }
 
         // Activate the application process without disrupting other windows
-        app.activate(options: [.activateIgnoringOtherApps])
+        if #available(macOS 14.0, *) {
+            app.activate()
+        } else {
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
 
         // Raise and focus the specific window via AX.
         if let axWin = axWinToRaise {
