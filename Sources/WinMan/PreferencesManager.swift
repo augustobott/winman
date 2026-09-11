@@ -8,11 +8,20 @@ public final class PreferencesManager: ObservableObject {
     
     // Dedicated persistent UserDefaults
     private let defaults = UserDefaults.standard
+    private var isBatchUpdating = false
     
     private func persist(_ value: Any?, forKey key: String) {
+        guard !isBatchUpdating else { return }
         defaults.set(value, forKey: key)
         defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+    }
+    
+    private func validateModifiers() {
+        guard !isBatchUpdating else { return }
+        if !moveCmd && !moveCtrl && !moveOpt && !moveShift {
+            moveOpt = true
+        }
     }
     
     // Keys
@@ -54,16 +63,28 @@ public final class PreferencesManager: ObservableObject {
     
     // Modifier keys
     @Published public var moveCmd: Bool {
-        didSet { persist(moveCmd, forKey: keyMoveCmd) }
+        didSet {
+            validateModifiers()
+            persist(moveCmd, forKey: keyMoveCmd)
+        }
     }
     @Published public var moveCtrl: Bool {
-        didSet { persist(moveCtrl, forKey: keyMoveCtrl) }
+        didSet {
+            validateModifiers()
+            persist(moveCtrl, forKey: keyMoveCtrl)
+        }
     }
     @Published public var moveOpt: Bool {
-        didSet { persist(moveOpt, forKey: keyMoveOpt) }
+        didSet {
+            validateModifiers()
+            persist(moveOpt, forKey: keyMoveOpt)
+        }
     }
     @Published public var moveShift: Bool {
-        didSet { persist(moveShift, forKey: keyMoveShift) }
+        didSet {
+            validateModifiers()
+            persist(moveShift, forKey: keyMoveShift)
+        }
     }
     
     @Published public var resizeWithRightClick: Bool {
@@ -175,18 +196,28 @@ public final class PreferencesManager: ObservableObject {
     }
     
     public func setPreset(cmd: Bool, ctrl: Bool, opt: Bool, shift: Bool) {
+        isBatchUpdating = true
         self.moveCmd = cmd
         self.moveCtrl = ctrl
         self.moveOpt = opt
         self.moveShift = shift
+        defaults.set(cmd, forKey: keyMoveCmd)
+        defaults.set(ctrl, forKey: keyMoveCtrl)
+        defaults.set(opt, forKey: keyMoveOpt)
+        defaults.set(shift, forKey: keyMoveShift)
         defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        isBatchUpdating = false
     }
     
     public func resetToDefaults() {
+        isBatchUpdating = true
         self.easyMoveResizeEnabled = true
         self.hotkeySnapEnabled = true
-        self.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
+        self.moveCmd = true
+        self.moveCtrl = false
+        self.moveOpt = true
+        self.moveShift = false
         self.resizeWithRightClick = true
         self.resizeWithShift = true
         self.menuBarIconStyle = .monochrome
@@ -196,7 +227,30 @@ public final class PreferencesManager: ObservableObject {
         self.altTabEnableQuickNumbers = true
         self.altTabScope = .allSpaces
         self.altTabThumbnailSize = .medium
+        
+        defaults.set(true, forKey: keyEasyMoveResizeEnabled)
+        defaults.set(true, forKey: keyHotkeySnapEnabled)
+        defaults.set(true, forKey: keyMoveCmd)
+        defaults.set(false, forKey: keyMoveCtrl)
+        defaults.set(true, forKey: keyMoveOpt)
+        defaults.set(false, forKey: keyMoveShift)
+        defaults.set(true, forKey: keyResizeWithRightClick)
+        defaults.set(true, forKey: keyResizeWithShift)
+        defaults.set(MenuBarIconStyle.monochrome.rawValue, forKey: keyMenuBarIconStyle)
+        defaults.set(true, forKey: keyAltTabEnabled)
+        defaults.set(true, forKey: keyAltTabShowThumbnails)
+        defaults.set(true, forKey: keyAltTabEnableSearch)
+        defaults.set(true, forKey: keyAltTabEnableQuickNumbers)
+        defaults.set(AltTabScope.allSpaces.rawValue, forKey: keyAltTabScope)
+        defaults.set(AltTabThumbnailSize.medium.rawValue, forKey: keyAltTabThumbnailSize)
+        
         defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        isBatchUpdating = false
+        
+        EasyMoveResizeEngine.shared.isEnabled = true
+        HotkeySnapEngine.shared.isEnabled = true
+        AltTabEngine.shared.isEnabled = true
+        NotificationCenter.default.post(name: PreferencesManager.iconChangedNotification, object: nil)
     }
 }

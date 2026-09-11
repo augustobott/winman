@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 
+@MainActor
 public final class WindowHighlightPanel: NSPanel {
     public static let shared = WindowHighlightPanel()
     
@@ -48,6 +49,10 @@ public final class WindowHighlightPanel: NSPanel {
     }
     
     public func dismiss() {
+        NSAnimationContext.beginGrouping()
+        NSAnimationContext.current.duration = 0
+        self.animator().alphaValue = 0
+        NSAnimationContext.endGrouping()
         self.orderOut(nil)
     }
 }

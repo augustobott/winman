@@ -151,4 +151,41 @@ final class WinManTests: XCTestCase {
         XCTAssertTrue(prefs.moveOpt)
         XCTAssertFalse(prefs.moveShift)
     }
+    
+    func testModifierValidation() {
+        let prefs = PreferencesManager.shared
+        // Turn off cmd, ctrl, shift
+        prefs.moveCmd = false
+        prefs.moveCtrl = false
+        prefs.moveShift = false
+        prefs.moveOpt = true
+        
+        // Attempt to turn off the last modifier (opt)
+        prefs.moveOpt = false
+        // Should automatically enforce at least one modifier is active
+        XCTAssertTrue(prefs.moveOpt || prefs.moveCmd || prefs.moveCtrl || prefs.moveShift)
+        XCTAssertFalse(prefs.moveModifiersMask.isEmpty)
+        
+        // Clean up
+        prefs.resetToDefaults()
+    }
+    
+    func testEventTapManagerInit() {
+        let tap = EventTapManager(label: "TestTap", eventMask: 0) { proxy, type, event in
+            return Unmanaged.passRetained(event)
+        }
+        XCTAssertFalse(tap.isRunning)
+    }
+
+    func testPreferencesWindowHelpers() {
+        // Access nonisolated preferences window helpers
+        _ = PreferencesWindowController.isPreferencesVisible
+        _ = PreferencesWindowController.preferencesWindowId
+        
+        let tracker = WindowFocusTracker.shared
+        tracker.recordFocus(windowId: 99999)
+        XCTAssertTrue(tracker.focusOrder.contains(99999))
+        tracker.removeWindow(windowId: 99999)
+        XCTAssertFalse(tracker.focusOrder.contains(99999))
+    }
 }

@@ -6,8 +6,7 @@ import CoreGraphics
 public final class EasyMoveResizeEngine {
     public static let shared = EasyMoveResizeEngine()
     
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var tapManager: EventTapManager?
     
     private enum DragMode: Equatable {
         case none
@@ -25,7 +24,7 @@ public final class EasyMoveResizeEngine {
     private init() {}
     
     public func start() {
-        guard eventTap == nil else { return }
+        guard tapManager == nil else { return }
         
         let eventMask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue) |
                                      (1 << CGEventType.leftMouseDragged.rawValue) |
@@ -34,56 +33,22 @@ public final class EasyMoveResizeEngine {
                                      (1 << CGEventType.rightMouseDragged.rawValue) |
                                      (1 << CGEventType.rightMouseUp.rawValue)
         
-        let observer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: eventMask,
-            callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
-                guard let refcon = refcon else { return Unmanaged.passRetained(event) }
-                let engine = Unmanaged<EasyMoveResizeEngine>.fromOpaque(refcon).takeUnretainedValue()
-                return MainActor.assumeIsolated {
-                    engine.handleEvent(proxy: proxy, type: type, event: event)
-                }
-            },
-            userInfo: observer
-        ) else {
-            print("[WinMan] Failed to create mouse event tap. Check Accessibility permissions.")
-            return
+        let manager = EventTapManager(label: "Easy-Move-Resize engine", eventMask: eventMask) { [weak self] proxy, type, event in
+            guard let self = self else { return Unmanaged.passRetained(event) }
+            return self.handleEvent(proxy: proxy, type: type, event: event)
         }
-        
-        self.eventTap = tap
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        self.runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        print("[WinMan] Easy-Move-Resize engine active.")
+        manager.start()
+        self.tapManager = manager
     }
     
     public func stop() {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            if let src = runLoopSource {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
-                self.runLoopSource = nil
-            }
-            self.eventTap = nil
-        }
+        tapManager?.stop()
+        self.tapManager = nil
         self.currentMode = .none
         self.activeWindow = nil
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        // Automatically re-enable if timed out
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-            return Unmanaged.passRetained(event)
-        }
-        
         guard isEnabled else {
             return Unmanaged.passRetained(event)
         }

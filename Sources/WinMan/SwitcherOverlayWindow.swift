@@ -7,6 +7,7 @@ public final class SwitcherOverlayController: ObservableObject {
     public static let shared = SwitcherOverlayController()
     
     @Published public var windows: [SwitcherWindowInfo] = []
+    @Published public var thumbnails: [CGWindowID: NSImage] = [:]
     @Published public var selectedIndex: Int = 0
     @Published public var searchQuery: String = ""
     @Published public var showQuickNumbers: Bool = true
@@ -40,6 +41,13 @@ public final class SwitcherOverlayController: ObservableObject {
     
     public func present(windows: [SwitcherWindowInfo], selectedIndex: Int = 0, showNumbers: Bool = true) {
         self.windows = windows
+        var initialThumbs: [CGWindowID: NSImage] = [:]
+        for win in windows {
+            if let thumb = win.thumbnail {
+                initialThumbs[win.id] = thumb
+            }
+        }
+        self.thumbnails = initialThumbs
         self.selectedIndex = selectedIndex
         self.searchQuery = ""
         self.showQuickNumbers = showNumbers
@@ -97,17 +105,15 @@ public final class SwitcherOverlayController: ObservableObject {
         p.orderFrontRegardless()
     }
 
-
     public func dismiss() {
         panel?.orderOut(nil)
         self.windows = []
+        self.thumbnails = [:]
         self.searchQuery = ""
     }
     
     public func updateThumbnail(windowId: CGWindowID, thumbnail: NSImage) {
-        if let idx = windows.firstIndex(where: { $0.id == windowId }) {
-            windows[idx].thumbnail = thumbnail
-        }
+        self.thumbnails[windowId] = thumbnail
     }
     
     public var isVisible: Bool {
@@ -162,6 +168,7 @@ struct SwitcherOverlayView: View {
                         ForEach(Array(controller.windows.enumerated()), id: \.element.id) { index, window in
                             SwitcherTileView(
                                 window: window,
+                                thumbnail: controller.thumbnails[window.id] ?? window.thumbnail,
                                 index: index,
                                 isSelected: index == controller.selectedIndex,
                                 showNumberBadge: controller.showQuickNumbers && index < 9,
@@ -218,6 +225,7 @@ struct SwitcherOverlayView: View {
 
 struct SwitcherTileView: View {
     let window: SwitcherWindowInfo
+    let thumbnail: NSImage?
     let index: Int
     let isSelected: Bool
     let showNumberBadge: Bool
@@ -231,7 +239,7 @@ struct SwitcherTileView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.black.opacity(0.35))
                     
-                    if let thumb = window.thumbnail {
+                    if let thumb = thumbnail {
                         Image(nsImage: thumb)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
