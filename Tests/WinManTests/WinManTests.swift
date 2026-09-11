@@ -128,4 +128,26 @@ final class WinManTests: XCTestCase {
         XCTAssertEqual(KeyCode.downArrow, 125)
         XCTAssertEqual(KeyCode.upArrow, 126)
     }
+    
+    func testResetToDefaults() {
+        let prefs = PreferencesManager.shared
+        // Modify some preferences away from default
+        prefs.easyMoveResizeEnabled = false
+        prefs.hotkeySnapEnabled = false
+        prefs.altTabScope = .currentScreen
+        prefs.setPreset(cmd: false, ctrl: true, opt: false, shift: true)
+        
+        // Reset to defaults
+        prefs.resetToDefaults()
+        
+        // Verify all settings are restored
+        XCTAssertTrue(prefs.easyMoveResizeEnabled)
+        XCTAssertTrue(prefs.hotkeySnapEnabled)
+        XCTAssertTrue(prefs.altTabEnabled)
+        XCTAssertEqual(prefs.altTabScope, .allSpaces)
+        XCTAssertTrue(prefs.moveCmd)
+        XCTAssertFalse(prefs.moveCtrl)
+        XCTAssertTrue(prefs.moveOpt)
+        XCTAssertFalse(prefs.moveShift)
+    }
 }

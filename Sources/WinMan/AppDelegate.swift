@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 
 public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private var statusItem: NSStatusItem!
+    private var statusItem: NSStatusItem?
     private var permissionTimer: Timer?
     
     public func applicationDidFinishLaunching(_ notification: Notification) {
@@ -53,7 +53,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         
         let menu = NSMenu()
         menu.delegate = self
-        statusItem.menu = menu
+        statusItem?.menu = menu
         rebuildMenu()
     }
     
@@ -63,7 +63,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     private func updateStatusBarIcon() {
-        guard let button = statusItem.button else { return }
+        guard let button = statusItem?.button else { return }
         let style = PreferencesManager.shared.menuBarIconStyle
         let icon = MenuBarIconManager.shared.icon(for: style)
         button.image = icon
@@ -77,7 +77,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     private func rebuildMenu() {
-        guard let menu = statusItem.menu else { return }
+        guard let menu = statusItem?.menu else { return }
         menu.removeAllItems()
         
         // Header

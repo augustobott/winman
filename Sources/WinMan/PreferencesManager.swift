@@ -181,4 +181,21 @@ public final class PreferencesManager: ObservableObject {
         defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
+    
+    public func resetToDefaults() {
+        self.easyMoveResizeEnabled = true
+        self.hotkeySnapEnabled = true
+        self.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
+        self.resizeWithRightClick = true
+        self.resizeWithShift = true
+        self.menuBarIconStyle = .monochrome
+        self.altTabEnabled = true
+        self.altTabShowThumbnails = true
+        self.altTabEnableSearch = true
+        self.altTabEnableQuickNumbers = true
+        self.altTabScope = .allSpaces
+        self.altTabThumbnailSize = .medium
+        defaults.synchronize()
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+    }
 }
