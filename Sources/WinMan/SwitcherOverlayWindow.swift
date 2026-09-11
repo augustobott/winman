@@ -174,7 +174,7 @@ struct SwitcherOverlayView: View {
                     }
                     .padding(4)
                 }
-                .onChange(of: controller.selectedIndex) { newIndex in
+                .onValueChange(of: controller.selectedIndex) { newIndex in
                     if newIndex >= 0 && newIndex < controller.windows.count {
                         withAnimation(.easeInOut(duration: 0.15)) {
                             proxy.scrollTo(controller.windows[newIndex].id, anchor: .center)
@@ -298,5 +298,22 @@ struct SwitcherTileView: View {
         )
         .scaleEffect(isSelected ? 1.03 : 1.0)
         .animation(.spring(response: 0.22, dampingFraction: 0.75), value: isSelected)
+    }
+}
+
+// MARK: - Compatibility View Extensions
+
+private extension View {
+    @ViewBuilder
+    func onValueChange<V: Equatable>(of value: V, perform action: @escaping (V) -> Void) -> some View {
+        if #available(macOS 14.0, *) {
+            self.onChange(of: value) { _, newValue in
+                action(newValue)
+            }
+        } else {
+            self.onChange(of: value) { newValue in
+                action(newValue)
+            }
+        }
     }
 }

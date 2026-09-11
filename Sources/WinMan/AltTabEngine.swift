@@ -16,35 +16,6 @@ public final class AltTabEngine {
     private var selectedIndex: Int = 0
     private var searchQuery: String = ""
     
-    // Key codes
-    private struct KeyCode {
-        static let tab: CGKeyCode = 48
-        static let escape: CGKeyCode = 53
-        static let enter: CGKeyCode = 36
-        static let backspace: CGKeyCode = 51
-        
-        static let leftArrow: CGKeyCode = 123
-        static let rightArrow: CGKeyCode = 124
-        static let downArrow: CGKeyCode = 125
-        static let upArrow: CGKeyCode = 126
-        
-        static let w: CGKeyCode = 13
-        static let m: CGKeyCode = 46
-        static let f: CGKeyCode = 3
-        static let q: CGKeyCode = 12
-        static let h: CGKeyCode = 4
-        
-        // Numbers 1-9
-        static let num1: CGKeyCode = 18
-        static let num2: CGKeyCode = 19
-        static let num3: CGKeyCode = 20
-        static let num4: CGKeyCode = 21
-        static let num5: CGKeyCode = 23
-        static let num6: CGKeyCode = 22
-        static let num7: CGKeyCode = 26
-        static let num8: CGKeyCode = 28
-        static let num9: CGKeyCode = 25
-    }
     
     private init() {}
     

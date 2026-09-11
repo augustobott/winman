@@ -11,30 +11,6 @@ public final class HotkeySnapEngine {
     public var isEnabled: Bool = true
     
     // Key codes
-    private struct KeyCode {
-        static let enter: CGKeyCode = 36
-        static let backspace: CGKeyCode = 51
-        static let leftArrow: CGKeyCode = 123
-        static let rightArrow: CGKeyCode = 124
-        static let downArrow: CGKeyCode = 125
-        static let upArrow: CGKeyCode = 126
-        
-        static let c: CGKeyCode = 8
-        static let u: CGKeyCode = 32
-        static let i: CGKeyCode = 34
-        static let j: CGKeyCode = 38
-        static let k: CGKeyCode = 40
-        static let d: CGKeyCode = 2
-        static let e: CGKeyCode = 14
-        static let f: CGKeyCode = 3
-        static let g: CGKeyCode = 5
-        static let t: CGKeyCode = 17
-        
-        static let minus: CGKeyCode = 27
-        static let equal: CGKeyCode = 24
-        
-        static let r: CGKeyCode = 15
-    }
     
     public private(set) var bindings: [HotkeyBinding] = []
     

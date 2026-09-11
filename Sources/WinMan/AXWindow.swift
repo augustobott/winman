@@ -2,24 +2,6 @@ import Foundation
 import AppKit
 import ApplicationServices
 
-public struct WindowRect {
-    public var origin: CGPoint
-    public var size: CGSize
-    
-    public init(origin: CGPoint, size: CGSize) {
-        self.origin = origin
-        self.size = size
-    }
-    
-    public init(cgRect: CGRect) {
-        self.origin = cgRect.origin
-        self.size = cgRect.size
-    }
-    
-    public var cgRect: CGRect {
-        return CGRect(origin: origin, size: size)
-    }
-}
 
 public final class AXWindow {
     public let element: AXUIElement
