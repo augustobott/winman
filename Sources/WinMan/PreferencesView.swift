@@ -150,16 +150,7 @@ public struct PreferencesView: View {
                 Spacer()
                 
                 Button("Reset Defaults") {
-                    prefs.setPreset(cmd: true, ctrl: false, opt: true, shift: false)
-                    prefs.resizeWithRightClick = true
-                    prefs.resizeWithShift = true
-                    prefs.menuBarIconStyle = .monochrome
-                    prefs.altTabEnabled = true
-                    prefs.altTabShowThumbnails = true
-                    prefs.altTabEnableSearch = true
-                    prefs.altTabEnableQuickNumbers = true
-                    prefs.altTabScope = .allSpaces
-                    prefs.altTabThumbnailSize = .medium
+                    prefs.resetToDefaults()
                 }
                 .controlSize(.small)
             }
