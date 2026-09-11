@@ -2,8 +2,6 @@ import Foundation
 import AppKit
 import ApplicationServices
 
-@_silgen_name("_AXUIElementGetWindow")
-func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError
 
 /// Tracks window focus history across all applications to provide true Most Recently Used (MRU)
 /// ordering for the window switcher. The currently focused window is always at index 0,

@@ -154,21 +154,20 @@ public struct PreferencesView: View {
                 }
                 .controlSize(.small)
             }
-            
-            Spacer()
         }
         .padding(20)
-        .frame(width: 530, height: 660)
+        .frame(width: 530)
     }
 }
 
+@MainActor
 public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     public static let shared = PreferencesWindowController()
     
     private init() {
         let hostingView = NSHostingView(rootView: PreferencesView())
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 530, height: 660),
+            contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -186,7 +185,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     }
     
     public func show() {
-        guard let window = self.window else { return }
+        guard let window = self.window, let contentView = window.contentView else { return }
+        window.setContentSize(contentView.fittingSize)
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }

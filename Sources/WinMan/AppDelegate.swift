@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 
+@MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var permissionTimer: Timer?
@@ -17,10 +18,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
                 if AccessibilityManager.shared.isTrusted {
                     print("[WinMan] Accessibility permission granted!")
-                    self?.startEngines()
-                    self?.rebuildMenu()
                     timer.invalidate()
-                    self?.permissionTimer = nil
+                    Task { @MainActor [weak self] in
+                        self?.permissionTimer = nil
+                        self?.startEngines()
+                        self?.rebuildMenu()
+                    }
                 }
             }
         }

@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import Combine
 
+@MainActor
 public final class PreferencesManager: ObservableObject {
     public static let shared = PreferencesManager()
     

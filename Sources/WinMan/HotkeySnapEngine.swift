@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import CoreGraphics
 
+@MainActor
 public final class HotkeySnapEngine {
     public static let shared = HotkeySnapEngine()
     
@@ -74,7 +75,9 @@ public final class HotkeySnapEngine {
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 guard let refcon = refcon else { return Unmanaged.passRetained(event) }
                 let engine = Unmanaged<HotkeySnapEngine>.fromOpaque(refcon).takeUnretainedValue()
-                return engine.handleKeyEvent(proxy: proxy, type: type, event: event)
+                return MainActor.assumeIsolated {
+                    engine.handleKeyEvent(proxy: proxy, type: type, event: event)
+                }
             },
             userInfo: observer
         ) else {
@@ -135,12 +138,14 @@ public final class HotkeySnapEngine {
             return
         }
         
+        let currentFrame = window.frame
+        
         if action == .restore {
             if window.restorePreviousFrame() {
                 return
             }
             // Fallback: If no restore history exists, center standard size
-            if let screen = window.targetScreen() {
+            if let screen = window.targetScreen(forFrame: currentFrame) {
                 let screenFrame = AXWindow.screenAXVisibleFrame(screen)
                 let w = screenFrame.width * 0.75
                 let h = screenFrame.height * 0.75
@@ -151,7 +156,7 @@ public final class HotkeySnapEngine {
             return
         }
         
-        guard let screen = window.targetScreen() else { return }
+        guard let screen = window.targetScreen(forFrame: currentFrame) else { return }
         let screenFrame = AXWindow.screenAXVisibleFrame(screen)
         
         let x0 = screenFrame.origin.x
@@ -213,14 +218,14 @@ public final class HotkeySnapEngine {
             targetRect = CGRect(x: x0 + (w - twoThirdW), y: y0, width: twoThirdW, height: h)
             
         case .center:
-            if let current = window.frame {
+            if let current = currentFrame {
                 let cx = x0 + max(0, (w - current.width) / 2)
                 let cy = y0 + max(0, (h - current.height) / 2)
                 targetRect = CGRect(x: cx, y: cy, width: min(w, current.width), height: min(h, current.height))
             }
             
         case .increaseSize:
-            if let current = window.frame {
+            if let current = currentFrame {
                 let nw = min(w, current.width * 1.1)
                 let nh = min(h, current.height * 1.1)
                 var nx = current.origin.x - (nw - current.width) / 2
@@ -231,7 +236,7 @@ public final class HotkeySnapEngine {
             }
             
         case .decreaseSize:
-            if let current = window.frame {
+            if let current = currentFrame {
                 let nw = max(150, min(w, current.width * 0.9))
                 let nh = max(150, min(h, current.height * 0.9))
                 var nx = current.origin.x + (current.width - nw) / 2
@@ -253,7 +258,7 @@ public final class HotkeySnapEngine {
             let nextScreen = screens[nextIndex]
             let nextScreenFrame = AXWindow.screenAXVisibleFrame(nextScreen)
             
-            if let current = window.frame {
+            if let current = currentFrame {
                 // Scale proportional position & size
                 let relX = (current.origin.x - screenFrame.origin.x) / screenFrame.width
                 let relY = (current.origin.y - screenFrame.origin.y) / screenFrame.height

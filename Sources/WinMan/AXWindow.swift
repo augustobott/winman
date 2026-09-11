@@ -163,27 +163,44 @@ public final class AXWindow {
     
     // MARK: - Screen helpers
     
-    public func targetScreen() -> NSScreen? {
-        let winFrame = frame ?? CGRect(x: 0, y: 0, width: 800, height: 600)
+    public func targetScreen(forFrame customFrame: CGRect? = nil) -> NSScreen? {
+        let winFrame = customFrame ?? frame ?? CGRect(x: 0, y: 0, width: 800, height: 600)
         let winCenter = CGPoint(x: winFrame.midX, y: winFrame.midY)
         
-        for screen in NSScreen.screens {
-            let screenAXFrame = AXWindow.screenAXVisibleFrame(screen)
-            if screenAXFrame.contains(winCenter) {
-                return screen
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return NSScreen.main }
+        
+        let primaryHeight = screens.first?.frame.height ?? 0
+        
+        // Single pass: map screens to their AX frames once
+        let screenAXFrames: [(screen: NSScreen, axFrame: CGRect)] = screens.map { screen in
+            let cocoaFrame = screen.visibleFrame
+            let axY = primaryHeight - (cocoaFrame.origin.y + cocoaFrame.size.height)
+            let axFrame = CGRect(
+                x: cocoaFrame.origin.x,
+                y: axY,
+                width: cocoaFrame.size.width,
+                height: cocoaFrame.size.height
+            )
+            return (screen, axFrame)
+        }
+        
+        // 1. Check center point containment
+        for item in screenAXFrames {
+            if item.axFrame.contains(winCenter) {
+                return item.screen
             }
         }
         
-        // Fallback to screen with maximum intersection area
+        // 2. Fallback: Screen with maximum intersection area
         var bestScreen: NSScreen?
         var maxArea: CGFloat = -1
-        for screen in NSScreen.screens {
-            let screenAXFrame = AXWindow.screenAXVisibleFrame(screen)
-            let intersection = screenAXFrame.intersection(winFrame)
+        for item in screenAXFrames {
+            let intersection = item.axFrame.intersection(winFrame)
             let area = intersection.isNull ? 0 : (intersection.width * intersection.height)
             if area > maxArea {
                 maxArea = area
-                bestScreen = screen
+                bestScreen = item.screen
             }
         }
         
