@@ -118,4 +118,14 @@ final class WinManTests: XCTestCase {
         let wrappedDown = downFrom9Target >= count ? (9 % cols) : downFrom9Target
         XCTAssertEqual(wrappedDown, 1)
     }
+    
+    func testKeyCodes() {
+        XCTAssertEqual(KeyCode.tab, 48)
+        XCTAssertEqual(KeyCode.escape, 53)
+        XCTAssertEqual(KeyCode.enter, 36)
+        XCTAssertEqual(KeyCode.leftArrow, 123)
+        XCTAssertEqual(KeyCode.rightArrow, 124)
+        XCTAssertEqual(KeyCode.downArrow, 125)
+        XCTAssertEqual(KeyCode.upArrow, 126)
+    }
 }

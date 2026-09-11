@@ -28,6 +28,18 @@ public final class WindowListManager {
         var windows: [SwitcherWindowInfo] = []
         var seenWindowIds = Set<CGWindowID>()
         
+        // Snapshot valid cached thumbnails (< 4.0s old) in a single read
+        let now = Date()
+        let cachedThumbnails: [CGWindowID: NSImage] = cacheQueue.sync {
+            var valid: [CGWindowID: NSImage] = [:]
+            for (wid, entry) in thumbnailCache {
+                if now.timeIntervalSince(entry.timestamp) < 4.0 {
+                    valid[wid] = entry.image
+                }
+            }
+            return valid
+        }
+        
         // Fast pass: collect valid windows
         for dict in infoList {
             guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
@@ -69,13 +81,7 @@ public final class WindowListManager {
             let displayTitle = winTitle.isEmpty ? appName : winTitle
             let appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
             
-            // Check cache for recent thumbnail (< 4 seconds old)
-            var cachedThumb: NSImage? = nil
-            cacheQueue.sync {
-                if let entry = thumbnailCache[windowId], Date().timeIntervalSince(entry.timestamp) < 4.0 {
-                    cachedThumb = entry.image
-                }
-            }
+            let cachedThumb = cachedThumbnails[windowId]
             
             let winInfo = SwitcherWindowInfo(
                 id: windowId,
@@ -102,17 +108,19 @@ public final class WindowListManager {
             
             for win in windows {
                 // Check if already in cache
-                var needsCapture = true
+                var cachedImage: NSImage? = nil
                 self.cacheQueue.sync {
                     if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
-                        needsCapture = false
-                        DispatchQueue.main.async {
-                            completion(win.id, entry.image)
-                        }
+                        cachedImage = entry.image
                     }
                 }
                 
-                guard needsCapture else { continue }
+                if let image = cachedImage {
+                    DispatchQueue.main.async {
+                        completion(win.id, image)
+                    }
+                    continue
+                }
                 
                 // Using .null for screenBounds captures ONLY the specified window rather than the composite screen rectangle.
                 if let cgImage = CGWindowListCreateImage(
