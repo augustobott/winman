@@ -184,14 +184,72 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         fatalError("init(coder:) has not been implemented")
     }
     
+    nonisolated public static var isPreferencesVisible: Bool {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                PreferencesWindowController.shared.window?.isVisible == true
+            }
+        } else {
+            return DispatchQueue.main.sync {
+                PreferencesWindowController.shared.window?.isVisible == true
+            }
+        }
+    }
+
+    nonisolated public static var preferencesWindowId: CGWindowID? {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated {
+                PreferencesWindowController.shared.window.map { CGWindowID($0.windowNumber) }
+            }
+        } else {
+            return DispatchQueue.main.sync {
+                PreferencesWindowController.shared.window.map { CGWindowID($0.windowNumber) }
+            }
+        }
+    }
+
+    nonisolated public static func showPreferences() {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                PreferencesWindowController.shared.show()
+            }
+        } else {
+            DispatchQueue.main.async {
+                PreferencesWindowController.shared.show()
+            }
+        }
+    }
+
+    nonisolated public static func closePreferences() {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                PreferencesWindowController.shared.window?.performClose(nil)
+            }
+        } else {
+            DispatchQueue.main.async {
+                PreferencesWindowController.shared.window?.performClose(nil)
+            }
+        }
+    }
+
     public func show() {
         guard let window = self.window, let contentView = window.contentView else { return }
         window.setContentSize(contentView.fittingSize)
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        WindowFocusTracker.shared.recordFocus(windowId: CGWindowID(window.windowNumber))
     }
-    
+
+    public func windowDidBecomeKey(_ notification: Notification) {
+        if let window = self.window {
+            WindowFocusTracker.shared.recordFocus(windowId: CGWindowID(window.windowNumber))
+        }
+    }
+
     public func windowWillClose(_ notification: Notification) {
+        if let window = self.window {
+            WindowFocusTracker.shared.removeWindow(windowId: CGWindowID(window.windowNumber))
+        }
         UserDefaults.standard.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }

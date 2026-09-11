@@ -87,14 +87,26 @@ public final class WindowFocusTracker {
     }
     
     public func updateFrontmostFocus() {
-        guard let frontApp = NSWorkspace.shared.frontmostApplication,
-              frontApp.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return }
+        if frontApp.processIdentifier == ProcessInfo.processInfo.processIdentifier {
+            if PreferencesWindowController.isPreferencesVisible,
+               let wid = PreferencesWindowController.preferencesWindowId {
+                recordFocus(windowId: wid)
+            }
+            return
+        }
         updateFocus(for: frontApp)
     }
     
     public func updateFocus(for app: NSRunningApplication) {
         let pid = app.processIdentifier
-        guard pid != ProcessInfo.processInfo.processIdentifier else { return }
+        if pid == ProcessInfo.processInfo.processIdentifier {
+            if PreferencesWindowController.isPreferencesVisible,
+               let wid = PreferencesWindowController.preferencesWindowId {
+                recordFocus(windowId: wid)
+            }
+            return
+        }
         
         // 1. Query AX focused window
         let appElement = AXUIElementCreateApplication(pid)

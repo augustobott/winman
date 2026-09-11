@@ -45,8 +45,17 @@ public final class WindowListManager {
             guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
             guard let windowId = dict[kCGWindowNumber as String] as? CGWindowID else { continue }
             guard let pid = dict[kCGWindowOwnerPID as String] as? pid_t else { continue }
-            guard pid != currentPid else { continue }
             guard !seenWindowIds.contains(windowId) else { continue }
+            
+            let isCurrentApp = (pid == currentPid)
+            if isCurrentApp {
+                // Only include WinMan's own window if it is the Preferences window and currently open
+                guard PreferencesWindowController.isPreferencesVisible,
+                      let prefWid = PreferencesWindowController.preferencesWindowId,
+                      windowId == prefWid else {
+                    continue
+                }
+            }
             
             // Check alpha
             if let alpha = dict[kCGWindowAlpha as String] as? Double, alpha < 0.05 {
@@ -65,21 +74,63 @@ public final class WindowListManager {
                 continue
             }
 
-            // For windows marked as not on screen, filter out small auxiliary popups, dropdowns, and search bubbles
             let isOnScreen = dict[kCGWindowIsOnscreen as String] as? Bool ?? false
+            let winTitle = dict[kCGWindowName as String] as? String ?? ""
+
+            // For windows marked as not on screen, filter out small auxiliary popups, dropdowns, and search bubbles
             if !isOnScreen && (bounds.width < 300 || bounds.height < 150) {
                 continue
             }
             
             // Check app
-            guard let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular else { continue }
+            guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+            guard app.activationPolicy != .prohibited else { continue }
+
+            // Ignore system background UI services that run as accessory
+            if let bundleId = app.bundleIdentifier {
+                if bundleId.hasPrefix("com.apple.loginwindow") ||
+                   bundleId.hasPrefix("com.apple.Spotlight") ||
+                   bundleId.hasPrefix("com.apple.dock") ||
+                   bundleId.hasPrefix("com.apple.controlcenter") ||
+                   bundleId.hasPrefix("com.apple.systemuiserver") ||
+                   bundleId.hasPrefix("com.apple.notificationcenterui") ||
+                   bundleId.hasPrefix("com.apple.WindowManager") ||
+                   bundleId.hasPrefix("com.apple.ScreenSaver") ||
+                   bundleId.hasPrefix("com.apple.TextInput") ||
+                   bundleId.hasPrefix("com.apple.accessibility.") {
+                    continue
+                }
+            }
+
+            // Accessory application filtering:
+            // Regular apps have activationPolicy == .regular.
+            // Accessory apps (activationPolicy == .accessory) include menu bar utilities, agents, and WinMan.
+            // Include accessory app windows if:
+            // 1) They are on screen with genuine window dimensions (width >= 250, height >= 180), OR
+            // 2) They are off-screen but have genuine window dimensions (width >= 350, height >= 200) and a non-empty window title.
+            if app.activationPolicy == .accessory && !isCurrentApp {
+                if isOnScreen {
+                    guard bounds.width >= 250, bounds.height >= 180 else { continue }
+                } else {
+                    guard bounds.width >= 350, bounds.height >= 200, !winTitle.isEmpty else { continue }
+                }
+            }
             
             seenWindowIds.insert(windowId)
             
-            let appName = app.localizedName ?? (dict[kCGWindowOwnerName as String] as? String ?? "App")
-            let winTitle = dict[kCGWindowName as String] as? String ?? ""
-            let displayTitle = winTitle.isEmpty ? appName : winTitle
-            let appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
+            let appName: String
+            let displayTitle: String
+            let appIcon: NSImage?
+            
+            if isCurrentApp {
+                appName = "WinMan"
+                displayTitle = "WinMan Preferences"
+                appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSApp.applicationIconImage ?? app.icon
+            } else {
+                appName = app.localizedName ?? (dict[kCGWindowOwnerName as String] as? String ?? "App")
+                displayTitle = winTitle.isEmpty ? appName : winTitle
+                appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
+            }
             
             let cachedThumb = cachedThumbnails[windowId]
             
@@ -201,6 +252,10 @@ public final class WindowListManager {
 
     public func activate(window: SwitcherWindowInfo) {
         WindowFocusTracker.shared.recordFocus(windowId: window.id)
+        if window.pid == ProcessInfo.processInfo.processIdentifier {
+            PreferencesWindowController.showPreferences()
+            return
+        }
         guard let app = NSRunningApplication(processIdentifier: window.pid) else { return }
 
         let appElement = AXUIElementCreateApplication(window.pid)
@@ -218,9 +273,8 @@ public final class WindowListManager {
         // Activate the application process without disrupting other windows
         if #available(macOS 14.0, *) {
             app.activate()
-        } else {
-            app.activate(options: [.activateIgnoringOtherApps])
         }
+        app.activate(options: [.activateIgnoringOtherApps])
 
         // Raise and focus the specific window via AX.
         if let axWin = axWinToRaise {
@@ -231,6 +285,10 @@ public final class WindowListManager {
     }
 
     public func close(window: SwitcherWindowInfo) {
+        if window.pid == ProcessInfo.processInfo.processIdentifier {
+            PreferencesWindowController.closePreferences()
+            return
+        }
         guard let axWin = targetAXWindow(for: window) else { return }
         var closeButton: AnyObject?
         if AXUIElementCopyAttributeValue(axWin, kAXCloseButtonAttribute as CFString, &closeButton) == .success,
@@ -254,6 +312,10 @@ public final class WindowListManager {
     }
 
     public func quit(window: SwitcherWindowInfo) {
+        if window.pid == ProcessInfo.processInfo.processIdentifier {
+            PreferencesWindowController.closePreferences()
+            return
+        }
         NSRunningApplication(processIdentifier: window.pid)?.terminate()
     }
 
