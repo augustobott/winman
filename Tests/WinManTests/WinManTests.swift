@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 @testable import WinMan
 
+@MainActor
 final class WinManTests: XCTestCase {
     
     func testSwitcherWindowInfoInitialization() {

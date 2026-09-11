@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SwiftUI
 
+@MainActor
 public final class SwitcherOverlayController: ObservableObject {
     public static let shared = SwitcherOverlayController()
     

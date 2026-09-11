@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import CoreGraphics
 
+@MainActor
 public final class AltTabEngine {
     public static let shared = AltTabEngine()
     
@@ -35,7 +36,9 @@ public final class AltTabEngine {
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 guard let refcon = refcon else { return Unmanaged.passRetained(event) }
                 let engine = Unmanaged<AltTabEngine>.fromOpaque(refcon).takeUnretainedValue()
-                return engine.handleEvent(proxy: proxy, type: type, event: event)
+                return MainActor.assumeIsolated {
+                    engine.handleEvent(proxy: proxy, type: type, event: event)
+                }
             },
             userInfo: observer
         ) else {

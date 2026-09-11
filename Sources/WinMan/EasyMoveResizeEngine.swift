@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import CoreGraphics
 
+@MainActor
 public final class EasyMoveResizeEngine {
     public static let shared = EasyMoveResizeEngine()
     
@@ -43,7 +44,9 @@ public final class EasyMoveResizeEngine {
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 guard let refcon = refcon else { return Unmanaged.passRetained(event) }
                 let engine = Unmanaged<EasyMoveResizeEngine>.fromOpaque(refcon).takeUnretainedValue()
-                return engine.handleEvent(proxy: proxy, type: type, event: event)
+                return MainActor.assumeIsolated {
+                    engine.handleEvent(proxy: proxy, type: type, event: event)
+                }
             },
             userInfo: observer
         ) else {
