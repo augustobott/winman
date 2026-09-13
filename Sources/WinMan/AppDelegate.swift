@@ -10,6 +10,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         setupStatusBar()
         
         let trusted = AccessibilityManager.shared.checkAndPrompt()
+        
+        // Handle sleep/wake cycles which can silently invalidate CGEvent taps
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleWakeNotification),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+
         if trusted {
             startEngines()
         } else {
@@ -27,6 +36,24 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
                 }
             }
         }
+    }
+    
+    @objc private func handleWakeNotification() {
+        print("[WinMan] System woke from sleep. Restarting engines...")
+        // Give the window server a moment to settle before recreating event taps
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            self.stopEngines()
+            if AccessibilityManager.shared.isTrusted {
+                self.startEngines()
+            }
+        }
+    }
+    
+    private func stopEngines() {
+        WindowFocusTracker.shared.stop()
+        EasyMoveResizeEngine.shared.stop()
+        HotkeySnapEngine.shared.stop()
+        AltTabEngine.shared.stop()
     }
     
     private func startEngines() {

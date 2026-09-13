@@ -60,6 +60,7 @@ public final class EventTapManager {
     public func stop() {
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap) // Explicitly invalidate the mach port so it doesn't linger
             if let src = runLoopSource {
                 CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
                 self.runLoopSource = nil
