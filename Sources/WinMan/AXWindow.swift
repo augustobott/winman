@@ -86,8 +86,8 @@ public final class AXWindow {
     }
     
     @discardableResult
-    public func setFrame(_ rect: CGRect, saveCurrentForRestore: Bool = false) -> Bool {
-        if saveCurrentForRestore, let current = frame {
+    public func saveCurrentForRestore() {
+        if let current = frame {
             let winId = id
             if AXWindow.restoreHistory[winId] == nil {
                 if AXWindow.restoreHistoryOrder.count >= 100 {
@@ -97,6 +97,12 @@ public final class AXWindow {
                 AXWindow.restoreHistoryOrder.append(winId)
             }
             AXWindow.restoreHistory[winId] = current
+        }
+    }
+
+    @discardableResult\n    public func setFrame(_ rect: CGRect, saveCurrentForRestore: Bool = false) -> Bool {
+        if saveCurrentForRestore {
+            self.saveCurrentForRestore()
         }
         // Set position, then size, then position again to handle constraint adjustments
         setPosition(rect.origin)
