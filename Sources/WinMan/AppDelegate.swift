@@ -437,10 +437,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             // If the system (TCC) terminates us to apply Screen Recording permissions,
             // we spawn a detached shell process to ensure we relaunch after a brief delay.
             let bundlePath = Bundle.main.bundlePath
-            let script = "sleep 0.5; open '\(bundlePath)'"
+            let script = "sleep 0.5; open \"$1\""
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
-            process.arguments = ["-c", script]
+            process.arguments = ["-c", script, "--", bundlePath]
             try? process.run()
         }
     }
