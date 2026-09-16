@@ -360,14 +360,24 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         alert.runModal()
     }
     
+    private var isIntentionalQuit = false
+
     @objc private func quitApp() {
-        UserDefaults.standard.synchronize()
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        isIntentionalQuit = true
         NSApplication.shared.terminate(nil)
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
-        UserDefaults.standard.synchronize()
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        if !isIntentionalQuit {
+            // Workaround for macOS TCC "Quit & Reopen" bug with LSUIElement apps.
+            // If the system (TCC) terminates us to apply Screen Recording permissions,
+            // we spawn a detached shell process to ensure we relaunch after a brief delay.
+            let bundlePath = Bundle.main.bundlePath
+            let script = "sleep 0.5; open '\(bundlePath)'"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", script]
+            try? process.run()
+        }
     }
 }
