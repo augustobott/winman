@@ -86,6 +86,7 @@ public final class HotkeySnapEngine {
         return Unmanaged.passRetained(event)
     }
     
+    @MainActor
     public func execute(action: WindowAction) {
         guard let window = AXWindow.focusedWindow() else {
             print("[WinMan] No active window found to perform action: \(action.rawValue)")
