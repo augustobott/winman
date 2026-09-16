@@ -21,6 +21,8 @@ app: release
 	@cp $(BIN) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	@cp Info.plist $(APP_BUNDLE)/Contents/Info.plist
 	@if [ -d Resources ]; then cp -R Resources/* $(APP_BUNDLE)/Contents/Resources/; fi
+	@echo "Signing $(APP_BUNDLE)..."
+	@codesign --force --deep -s - $(APP_BUNDLE)
 	@echo "Done! Application bundle built at $(APP_BUNDLE)"
 
 dist: app

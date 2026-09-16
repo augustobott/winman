@@ -25,6 +25,14 @@ Download the latest version of `WinMan.zip` from the **[GitHub Releases page](ht
 
 Unzip `WinMan.zip` and drag `WinMan.app` to your `/Applications` folder!
 
+> [!IMPORTANT]
+> Because WinMan is built and distributed without a paid Apple Developer account, macOS Gatekeeper will attach a "Quarantine" flag when you download it via a web browser. When you try to open it, macOS may incorrectly state the app is "damaged and can't be opened."
+> 
+> To remove this flag and run the app, open your Terminal and run:
+> ```bash
+> xattr -r -d com.apple.quarantine /Applications/WinMan.app
+> ```
+
 ## Features
 
 ### 1. Alt-Tab Window Switcher (All Pro Features Unlocked)
