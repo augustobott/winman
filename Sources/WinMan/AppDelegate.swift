@@ -1,10 +1,13 @@
 import Foundation
 import AppKit
 
+import Combine
+
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var permissionTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     
     public func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
@@ -68,6 +71,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         
         AltTabEngine.shared.isEnabled = prefs.altTabEnabled
         AltTabEngine.shared.start()
+        
+        prefs.$easyMoveResizeEnabled.sink { enabled in
+            EasyMoveResizeEngine.shared.isEnabled = enabled
+        }.store(in: &cancellables)
+        
+        prefs.$hotkeySnapEnabled.sink { enabled in
+            HotkeySnapEngine.shared.isEnabled = enabled
+        }.store(in: &cancellables)
+        
+        prefs.$altTabEnabled.sink { enabled in
+            AltTabEngine.shared.isEnabled = enabled
+        }.store(in: &cancellables)
     }
     
     private func setupStatusBar() {
