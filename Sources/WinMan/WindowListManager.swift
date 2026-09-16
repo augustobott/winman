@@ -144,7 +144,7 @@ public final class WindowListManager {
                 if let cached = iconCache[pid] {
                     appIcon = cached
                 } else {
-                    let icon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
+                    let icon = app.icon
                     appIcon = icon
                     iconCache[pid] = icon
                 }
@@ -185,6 +185,14 @@ public final class WindowListManager {
                 }
                 
                 if foundCache {
+                    continue
+                }
+                
+                // Screen Recording permission is required on macOS 10.15+ to capture
+                // window contents via CGWindowListCreateImage. Without it the OS returns
+                // a blank (transparent) image — we skip silently rather than polluting
+                // the cache with empty thumbnails.
+                guard CGPreflightScreenCaptureAccess() else {
                     continue
                 }
                 

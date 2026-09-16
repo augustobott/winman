@@ -19,6 +19,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         
         let trusted = AccessibilityManager.shared.checkAndPrompt()
         
+        // NOTE: Screen Recording permission is requested inside startEngines(),
+        // which is only called once Accessibility is confirmed granted.
+        // This ensures the two system permission prompts never appear simultaneously.
+        
         // Handle sleep/wake cycles which can silently invalidate CGEvent taps
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -114,6 +118,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         prefs.$altTabEnabled.sink { enabled in
             AltTabEngine.shared.isEnabled = enabled
         }.store(in: &cancellables)
+        
+        // Request Screen Recording permission here — after Accessibility is confirmed granted —
+        // so both system prompts never appear simultaneously. Defer by 1s so any Accessibility
+        // prompt (or its TCC-triggered relaunch) has fully settled before the next dialog fires.
+        if prefs.altTabShowThumbnails && !ScreenRecordingManager.shared.isGranted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                ScreenRecordingManager.shared.requestIfNeeded()
+            }
+        }
     }
     
     private func setupStatusBar() {
@@ -161,7 +174,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         titleItem.isEnabled = false
         menu.addItem(titleItem)
         
-        // Permission Status
+        // Permission Status — Accessibility
         let isTrusted = AccessibilityManager.shared.isTrusted
         if isTrusted {
             let permItem = NSMenuItem(title: "✓ Accessibility Enabled", action: nil, keyEquivalent: "")
@@ -175,6 +188,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             )
             permItem.target = self
             menu.addItem(permItem)
+        }
+        
+        // Permission Status — Screen Recording (only shown when thumbnails are on)
+        if PreferencesManager.shared.altTabShowThumbnails {
+            if ScreenRecordingManager.shared.isGranted {
+                let srItem = NSMenuItem(title: "✓ Screen Recording Enabled", action: nil, keyEquivalent: "")
+                srItem.isEnabled = false
+                menu.addItem(srItem)
+            } else {
+                let srItem = NSMenuItem(
+                    title: "⚠️ Screen Recording Required for Thumbnails...",
+                    action: #selector(openScreenRecordingSettings),
+                    keyEquivalent: ""
+                )
+                srItem.target = self
+                menu.addItem(srItem)
+            }
         }
         
         menu.addItem(NSMenuItem.separator())
@@ -303,6 +333,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func openAccessibilitySettings() {
         AccessibilityManager.shared.openAccessibilityPreferences()
         AccessibilityManager.shared.checkAndPrompt()
+    }
+    
+    @objc private func openScreenRecordingSettings() {
+        // The menu item only appears when permission is NOT granted.
+        // At this point the TCC dialog has already been shown (and dismissed/denied),
+        // so calling CGRequestScreenCaptureAccess() again would be silently ignored.
+        // Instead, show an NSAlert with instructions and open System Settings directly.
+        ScreenRecordingManager.shared.showManualPermissionAlert()
     }
     
     @objc private func toggleEasyMoveResize() {
