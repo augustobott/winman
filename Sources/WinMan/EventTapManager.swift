@@ -71,8 +71,16 @@ public final class EventTapManager {
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
+            if AccessibilityManager.shared.isTrusted {
+                print("[WinMan] Event tap disabled (\(type)). Re-enabling...")
+                if let tap = eventTap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                }
+            } else {
+                print("[WinMan] Event tap disabled and Accessibility revoked. Not re-enabling.")
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("AccessibilityRevoked"), object: nil)
+                }
             }
             return Unmanaged.passRetained(event)
         }

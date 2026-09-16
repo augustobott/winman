@@ -26,6 +26,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAccessibilityRevoked),
+            name: NSNotification.Name("AccessibilityRevoked"),
+            object: nil
+        )
 
         if trusted {
             startEngines()
@@ -40,6 +46,25 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
                         self?.permissionTimer = nil
                         self?.startEngines()
                         self?.rebuildMenu()
+                    }
+                }
+            }
+        }
+    }
+    
+    @objc private func handleAccessibilityRevoked() {
+        print("[WinMan] Accessibility revoked! Stopping engines...")
+        stopEngines()
+        
+        // Start polling again so we recover if they re-grant it
+        if permissionTimer == nil {
+            permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
+                if AccessibilityManager.shared.isTrusted {
+                    print("[WinMan] Accessibility permission re-granted!")
+                    timer.invalidate()
+                    Task { @MainActor [weak self] in
+                        self?.permissionTimer = nil
+                        self?.startEngines()
                     }
                 }
             }
