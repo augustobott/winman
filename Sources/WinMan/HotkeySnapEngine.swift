@@ -19,45 +19,33 @@ public final class HotkeySnapEngine {
     }
     
     private func setupDefaultBindings() {
-        let ctrlOpt: CGEventFlags = [.maskControl, .maskAlternate]
-        let ctrlOptCmd: CGEventFlags = [.maskControl, .maskAlternate, .maskCommand]
-        let cmdOpt: CGEventFlags = [.maskCommand, .maskAlternate]
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("WinManSnapBindingsChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadBindings() }
+        }
+        reloadBindings()
+    }
+    
+    private func reloadBindings() {
+        let prefs = PreferencesManager.shared
+        let mods = prefs.snapModifiersMask
+        var newBindings: [HotkeyBinding] = []
         
-        bindings = [
-            // Maximize & Restore
-            HotkeyBinding(action: .maximize, keyCode: KeyCode.enter, modifiers: ctrlOpt, displayString: "⌃⌥↵"),
-            HotkeyBinding(action: .maximize, keyCode: KeyCode.f, modifiers: cmdOpt, displayString: "⌥⌘F"),
-            HotkeyBinding(action: .restore, keyCode: KeyCode.backspace, modifiers: ctrlOpt, displayString: "⌃⌥⌫"),
-            HotkeyBinding(action: .restore, keyCode: KeyCode.r, modifiers: cmdOpt, displayString: "⌥⌘R"),
-            
-            // Halves
-            HotkeyBinding(action: .leftHalf, keyCode: KeyCode.leftArrow, modifiers: ctrlOpt, displayString: "⌃⌥←"),
-            HotkeyBinding(action: .rightHalf, keyCode: KeyCode.rightArrow, modifiers: ctrlOpt, displayString: "⌃⌥→"),
-            HotkeyBinding(action: .topHalf, keyCode: KeyCode.upArrow, modifiers: ctrlOpt, displayString: "⌃⌥↑"),
-            HotkeyBinding(action: .bottomHalf, keyCode: KeyCode.downArrow, modifiers: ctrlOpt, displayString: "⌃⌥↓"),
-            
-            // Quarters
-            HotkeyBinding(action: .topLeftQuarter, keyCode: KeyCode.u, modifiers: ctrlOpt, displayString: "⌃⌥U"),
-            HotkeyBinding(action: .topRightQuarter, keyCode: KeyCode.i, modifiers: ctrlOpt, displayString: "⌃⌥I"),
-            HotkeyBinding(action: .bottomLeftQuarter, keyCode: KeyCode.j, modifiers: ctrlOpt, displayString: "⌃⌥J"),
-            HotkeyBinding(action: .bottomRightQuarter, keyCode: KeyCode.k, modifiers: ctrlOpt, displayString: "⌃⌥K"),
-            
-            // Thirds
-            HotkeyBinding(action: .leftThird, keyCode: KeyCode.d, modifiers: ctrlOpt, displayString: "⌃⌥D"),
-            HotkeyBinding(action: .centerThird, keyCode: KeyCode.e, modifiers: ctrlOpt, displayString: "⌃⌥E"),
-            HotkeyBinding(action: .rightThird, keyCode: KeyCode.f, modifiers: ctrlOpt, displayString: "⌃⌥F"),
-            HotkeyBinding(action: .leftTwoThirds, keyCode: KeyCode.g, modifiers: ctrlOpt, displayString: "⌃⌥G"),
-            HotkeyBinding(action: .rightTwoThirds, keyCode: KeyCode.t, modifiers: ctrlOpt, displayString: "⌃⌥T"),
-            
-            // Center & Resize
-            HotkeyBinding(action: .center, keyCode: KeyCode.c, modifiers: ctrlOpt, displayString: "⌃⌥C"),
-            HotkeyBinding(action: .increaseSize, keyCode: KeyCode.equal, modifiers: ctrlOpt, displayString: "⌃⌥+"),
-            HotkeyBinding(action: .decreaseSize, keyCode: KeyCode.minus, modifiers: ctrlOpt, displayString: "⌃⌥-"),
-            
-            // Displays
-            HotkeyBinding(action: .nextScreen, keyCode: KeyCode.rightArrow, modifiers: ctrlOptCmd, displayString: "⌃⌥⌘→"),
-            HotkeyBinding(action: .prevScreen, keyCode: KeyCode.leftArrow, modifiers: ctrlOptCmd, displayString: "⌃⌥⌘←")
-        ]
+        for action in WindowAction.allCases {
+            if let keyCode = prefs.snapBindings[action.rawValue] {
+                newBindings.append(HotkeyBinding(
+                    action: action,
+                    keyCode: CGKeyCode(keyCode),
+                    modifiers: mods,
+                    displayString: ""
+                ))
+            }
+        }
+        
+        self.bindings = newBindings
     }
     
     public func start() {

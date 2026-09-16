@@ -1,12 +1,15 @@
-import SwiftUI
-import AppKit
+import re
 
-public struct PreferencesView: View {
-    @ObservedObject var prefs = PreferencesManager.shared
-    
-    public init() {}
-    
-        public var body: some View {
+with open("Sources/WinMan/PreferencesView.swift", "r") as f:
+    content = f.read()
+
+body_start = content.find("public var body: some View {")
+controller_start = content.find("@MainActor\npublic final class PreferencesWindowController")
+
+pre_body = content[:body_start]
+post_body = content[controller_start:]
+
+new_body = """    public var body: some View {
         TabView {
             moveResizeTab
                 .tabItem { Text("Move & Resize") }
@@ -113,7 +116,7 @@ public struct PreferencesView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text("\(prefs.displayString) + Click & Drag")
+                    Text("\\(prefs.displayString) + Click & Drag")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -167,7 +170,7 @@ public struct PreferencesView: View {
                         .foregroundColor(.secondary)
                     
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        ForEach(WindowAction.allCases, id: \.self) { action in
+                        ForEach(WindowAction.allCases, id: \\.self) { action in
                             HStack {
                                 Text(action.rawValue)
                                     .font(.caption)
@@ -294,84 +297,8 @@ public struct PreferencesView: View {
     }
 }
 
-@MainActor
-public final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
-    public static let shared = PreferencesWindowController()
-    
-    private init() {
-        let hostingView = NSHostingView(rootView: PreferencesView())
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.center()
-        window.title = "WinMan Preferences"
-        window.contentView = hostingView
-        window.isReleasedWhenClosed = false
-        super.init(window: window)
-        window.delegate = self
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    @MainActor
-    public static var isPreferencesVisible: Bool {
-        PreferencesWindowController.shared.window?.isVisible == true
-    }
+"""
 
-    @MainActor
-    public static var preferencesWindowId: CGWindowID? {
-        guard let win = PreferencesWindowController.shared.window else { return nil }
-        return CGWindowID(win.windowNumber)
-    }
+with open("Sources/WinMan/PreferencesView.swift", "w") as f:
+    f.write(pre_body + new_body + post_body)
 
-    nonisolated public static func showPreferences() {
-        if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                PreferencesWindowController.shared.show()
-            }
-        } else {
-            DispatchQueue.main.async {
-                PreferencesWindowController.shared.show()
-            }
-        }
-    }
-
-    nonisolated public static func closePreferences() {
-        if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                PreferencesWindowController.shared.window?.performClose(nil)
-            }
-        } else {
-            DispatchQueue.main.async {
-                PreferencesWindowController.shared.window?.performClose(nil)
-            }
-        }
-    }
-
-    public func show() {
-        guard let window = self.window, let contentView = window.contentView else { return }
-        window.setContentSize(contentView.fittingSize)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        WindowFocusTracker.shared.recordFocus(windowId: CGWindowID(window.windowNumber))
-    }
-
-    public func windowDidBecomeKey(_ notification: Notification) {
-        if let window = self.window {
-            WindowFocusTracker.shared.recordFocus(windowId: CGWindowID(window.windowNumber))
-        }
-    }
-
-    public func windowWillClose(_ notification: Notification) {
-        if let window = self.window {
-            WindowFocusTracker.shared.removeWindow(windowId: CGWindowID(window.windowNumber))
-        }
-        UserDefaults.standard.synchronize()
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
-    }
-}
