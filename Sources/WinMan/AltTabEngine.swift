@@ -143,35 +143,38 @@ public final class AltTabEngine {
         }
         
         // In-Switcher Actions
-        if keyCode == KeyCode.w {
-            DispatchQueue.main.async {
-                self.closeSelectedWindow()
+        let hasCmdOrCtrl = flags.contains(.maskCommand) || flags.contains(.maskControl)
+        if !hasCmdOrCtrl {
+            if keyCode == KeyCode.w {
+                DispatchQueue.main.async {
+                    self.closeSelectedWindow()
+                }
+                return nil
             }
-            return nil
-        }
-        if keyCode == KeyCode.m {
-            DispatchQueue.main.async {
-                self.minimizeSelectedWindow()
+            if keyCode == KeyCode.m {
+                DispatchQueue.main.async {
+                    self.minimizeSelectedWindow()
+                }
+                return nil
             }
-            return nil
-        }
-        if keyCode == KeyCode.h {
-            DispatchQueue.main.async {
-                self.hideSelectedApp()
+            if keyCode == KeyCode.h {
+                DispatchQueue.main.async {
+                    self.hideSelectedApp()
+                }
+                return nil
             }
-            return nil
-        }
-        if keyCode == KeyCode.f {
-            DispatchQueue.main.async {
-                self.fullscreenSelectedWindow()
+            if keyCode == KeyCode.f {
+                DispatchQueue.main.async {
+                    self.fullscreenSelectedWindow()
+                }
+                return nil
             }
-            return nil
-        }
-        if keyCode == KeyCode.q {
-            DispatchQueue.main.async {
-                self.quitSelectedApp()
+            if keyCode == KeyCode.q {
+                DispatchQueue.main.async {
+                    self.quitSelectedApp()
+                }
+                return nil
             }
-            return nil
         }
         
         // Live Search Handling

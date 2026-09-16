@@ -25,8 +25,24 @@ public final class AXWindow {
     }
     
     public var frame: CGRect? {
-        guard let pos = position, let sz = size else { return nil }
-        return CGRect(origin: pos, size: sz)
+        let attributes: CFArray = [kAXPositionAttribute, kAXSizeAttribute] as CFArray
+        var values: CFArray?
+        let result = AXUIElementCopyMultipleAttributeValues(element, attributes, [], &values)
+        
+        guard result == .success, let array = values as? [AnyObject], array.count == 2 else { return nil }
+        
+        var point = CGPoint.zero
+        var size = CGSize.zero
+        
+        let posVal = array[0]
+        let szVal = array[1]
+        
+        guard CFGetTypeID(posVal) == AXValueGetTypeID(), CFGetTypeID(szVal) == AXValueGetTypeID() else { return nil }
+        
+        AXValueGetValue(posVal as! AXValue, .cgPoint, &point)
+        AXValueGetValue(szVal as! AXValue, .cgSize, &size)
+        
+        return CGRect(origin: point, size: size)
     }
     
     public var position: CGPoint? {
@@ -194,7 +210,7 @@ public final class AXWindow {
         
         // 2. Fallback: Screen with maximum intersection area
         var bestScreen: NSScreen?
-        var maxArea: CGFloat = -1
+        var maxArea: CGFloat = 0
         for item in screenAXFrames {
             let intersection = item.axFrame.intersection(winFrame)
             let area = intersection.isNull ? 0 : (intersection.width * intersection.height)
@@ -204,7 +220,7 @@ public final class AXWindow {
             }
         }
         
-        return bestScreen ?? NSScreen.main
+        return bestScreen
     }
     
     public static func screenAXVisibleFrame(_ screen: NSScreen) -> CGRect {

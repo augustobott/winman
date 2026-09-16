@@ -6,13 +6,13 @@ import ApplicationServices
 /// Tracks window focus history across all applications to provide true Most Recently Used (MRU)
 /// ordering for the window switcher. The currently focused window is always at index 0,
 /// the previously focused window is at index 1, the 2nd to last at index 2, etc.
+@MainActor
 public final class WindowFocusTracker {
     public static let shared = WindowFocusTracker()
     
     // MRU focus order list: index 0 is the current / most recently focused window,
     // index 1 is the last focused window, index 2 is 2nd to last, etc.
     private(set) var focusOrder: [CGWindowID] = []
-    private let lock = NSLock()
     
     private var activeAxObserver: AXObserver?
     private var observedPid: pid_t = 0
@@ -68,8 +68,6 @@ public final class WindowFocusTracker {
     
     public func recordFocus(windowId: CGWindowID) {
         guard windowId != 0 else { return }
-        lock.lock()
-        defer { lock.unlock() }
         
         focusOrder.removeAll(where: { $0 == windowId })
         focusOrder.insert(windowId, at: 0)
@@ -81,8 +79,6 @@ public final class WindowFocusTracker {
     }
     
     public func removeWindow(windowId: CGWindowID) {
-        lock.lock()
-        defer { lock.unlock() }
         focusOrder.removeAll(where: { $0 == windowId })
     }
     
@@ -175,9 +171,7 @@ public final class WindowFocusTracker {
     }
     
     public func sortWindowsByMRU(_ windows: [SwitcherWindowInfo]) -> [SwitcherWindowInfo] {
-        lock.lock()
         let order = self.focusOrder
-        lock.unlock()
         
         var focusRank: [CGWindowID: Int] = [:]
         for (index, id) in order.enumerated() {
