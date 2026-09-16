@@ -100,7 +100,8 @@ public final class AXWindow {
         }
     }
 
-    @discardableResult\n    public func setFrame(_ rect: CGRect, saveCurrentForRestore: Bool = false) -> Bool {
+    @discardableResult
+    public func setFrame(_ rect: CGRect, saveCurrentForRestore: Bool = false) -> Bool {
         if saveCurrentForRestore {
             self.saveCurrentForRestore()
         }
@@ -110,6 +111,7 @@ public final class AXWindow {
         return setPosition(rect.origin)
     }
     
+    @discardableResult
     public func restorePreviousFrame() -> Bool {
         let winId = id
         guard let previous = AXWindow.restoreHistory[winId] else {
