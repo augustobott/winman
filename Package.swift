@@ -15,7 +15,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "WinMan",
-            path: "Sources/WinMan"
+            path: "Sources/WinMan",
+            resources: [
+                .copy("../../Resources")
+            ]
         ),
         .testTarget(
             name: "WinManTests",
