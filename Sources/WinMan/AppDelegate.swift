@@ -9,6 +9,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private var permissionTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
+        public func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu == statusItem?.menu {
+            rebuildMenu()
+        }
+    }
     public func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
         
@@ -276,17 +281,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     
     @objc private func toggleEasyMoveResize() {
         PreferencesManager.shared.easyMoveResizeEnabled.toggle()
-        rebuildMenu()
     }
     
     @objc private func toggleHotkeys() {
         PreferencesManager.shared.hotkeySnapEnabled.toggle()
-        rebuildMenu()
     }
     
     @objc private func toggleAltTab() {
         PreferencesManager.shared.altTabEnabled.toggle()
-        rebuildMenu()
     }
     
     @objc private func performMenuAction(_ sender: NSMenuItem) {

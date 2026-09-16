@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import ApplicationServices
 
+@MainActor
 public final class WindowListManager {
     public static let shared = WindowListManager()
     
@@ -11,8 +12,7 @@ public final class WindowListManager {
     private var thumbnailCache: [CGWindowID: (image: NSImage, timestamp: Date)] = [:]
     private var thumbnailCacheOrder: [CGWindowID] = []   // insertion-order for eviction
     private static let maxThumbnailCacheSize = 100
-    private let cacheQueue = DispatchQueue(label: "com.winman.thumbnailCache")
-
+    
     private init() {}
     
     public func fetchOpenWindows(scope: AltTabScope = .allSpaces) -> [SwitcherWindowInfo] {
@@ -30,15 +30,13 @@ public final class WindowListManager {
         
         // Snapshot valid cached thumbnails (< 4.0s old) in a single read
         let now = Date()
-        let cachedThumbnails: [CGWindowID: NSImage] = cacheQueue.sync {
-            var valid: [CGWindowID: NSImage] = [:]
-            for (wid, entry) in thumbnailCache {
-                if now.timeIntervalSince(entry.timestamp) < 4.0 {
-                    valid[wid] = entry.image
-                }
+        var valid: [CGWindowID: NSImage] = [:]
+        for (wid, entry) in thumbnailCache {
+            if now.timeIntervalSince(entry.timestamp) < 4.0 {
+                valid[wid] = entry.image
             }
-            return valid
         }
+        let cachedThumbnails = valid
         
         // Fast pass: collect valid windows
         for dict in infoList {
@@ -154,47 +152,30 @@ public final class WindowListManager {
     }
     
     public func loadThumbnailsAsync(for windows: [SwitcherWindowInfo], completion: @escaping (CGWindowID, NSImage) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
+        Task { @MainActor in
             for win in windows {
-                // Check if already in cache
-                var cachedImage: NSImage? = nil
-                self.cacheQueue.sync {
-                    if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
-                        cachedImage = entry.image
-                    }
-                }
-                
-                if let image = cachedImage {
-                    DispatchQueue.main.async {
-                        completion(win.id, image)
-                    }
+                if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
+                    completion(win.id, entry.image)
                     continue
                 }
                 
-                // Using .null for screenBounds captures ONLY the specified window rather than the composite screen rectangle.
-                if let cgImage = CGWindowListCreateImage(
-                    .null,
-                    .optionIncludingWindow,
-                    win.id,
-                    [.boundsIgnoreFraming]
-                ) {
-                    let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
-                    self.cacheQueue.sync {
-                        // Evict the oldest entry if the cache is at its limit.
-                        if self.thumbnailCache[win.id] == nil {
-                            if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
-                               let oldest = self.thumbnailCacheOrder.first {
-                                self.thumbnailCache.removeValue(forKey: oldest)
-                                self.thumbnailCacheOrder.removeFirst()
+                // Fetch in background
+                Task.detached(priority: .userInitiated) {
+                    if let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, win.id, [.boundsIgnoreFraming]) {
+                        let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
+                        
+                        await MainActor.run {
+                            if self.thumbnailCache[win.id] == nil {
+                                if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
+                                   let oldest = self.thumbnailCacheOrder.first {
+                                    self.thumbnailCache.removeValue(forKey: oldest)
+                                    self.thumbnailCacheOrder.removeFirst()
+                                }
+                                self.thumbnailCacheOrder.append(win.id)
                             }
-                            self.thumbnailCacheOrder.append(win.id)
+                            self.thumbnailCache[win.id] = (thumb, Date())
+                            completion(win.id, thumb)
                         }
-                        self.thumbnailCache[win.id] = (thumb, Date())
-                    }
-                    DispatchQueue.main.async {
-                        completion(win.id, thumb)
                     }
                 }
             }
@@ -251,7 +232,7 @@ public final class WindowListManager {
     // MARK: - Window Actions
 
     public func activate(window: SwitcherWindowInfo) {
-        WindowFocusTracker.shared.recordFocus(windowId: window.id)
+        Task { @MainActor in WindowFocusTracker.shared.recordFocus(windowId: window.id) }
         if window.pid == ProcessInfo.processInfo.processIdentifier {
             PreferencesWindowController.showPreferences()
             return
@@ -273,8 +254,9 @@ public final class WindowListManager {
         // Activate the application process without disrupting other windows
         if #available(macOS 14.0, *) {
             app.activate()
+        } else {
+            app.activate(options: [.activateIgnoringOtherApps])
         }
-        app.activate(options: [.activateIgnoringOtherApps])
 
         // Raise and focus the specific window via AX.
         if let axWin = axWinToRaise {

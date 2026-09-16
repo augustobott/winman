@@ -101,11 +101,7 @@ public final class EasyMoveResizeEngine {
                     }
                     return nil // Intercept & swallow event
                 }
-            } else {
-                // Normal click on a window - track focus after activation settles
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    WindowFocusTracker.shared.updateFrontmostFocus()
-                }
+
             }
             
         case .rightMouseDown:
@@ -128,7 +124,16 @@ public final class EasyMoveResizeEngine {
                 if let window = activeWindow {
                     let dx = mouseLocation.x - initialMouseLocation.x
                     let dy = mouseLocation.y - initialMouseLocation.y
-                    let newOrigin = CGPoint(x: initialWindowFrame.origin.x + dx, y: initialWindowFrame.origin.y + dy)
+                    var newOrigin = CGPoint(x: initialWindowFrame.origin.x + dx, y: initialWindowFrame.origin.y + dy)
+                    
+                    if let screen = window.targetScreen() {
+                        let sf = AXWindow.screenAXVisibleFrame(screen)
+                        // Don't allow dragging completely above the menu bar or below the screen
+                        newOrigin.y = max(sf.minY, min(newOrigin.y, sf.maxY - 20))
+                        // Don't allow dragging completely off the left/right edges
+                        newOrigin.x = max(sf.minX - initialWindowFrame.width + 40, min(newOrigin.x, sf.maxX - 40))
+                    }
+                    
                     window.setPosition(newOrigin)
                     return nil
                 }

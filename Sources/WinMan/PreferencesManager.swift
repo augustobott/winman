@@ -13,7 +13,6 @@ public final class PreferencesManager: ObservableObject {
     private func persist(_ value: Any?, forKey key: String) {
         guard !isBatchUpdating else { return }
         defaults.set(value, forKey: key)
-        defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
     
@@ -205,7 +204,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(ctrl, forKey: keyMoveCtrl)
         defaults.set(opt, forKey: keyMoveOpt)
         defaults.set(shift, forKey: keyMoveShift)
-        defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
     }
@@ -244,7 +242,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(AltTabScope.allSpaces.rawValue, forKey: keyAltTabScope)
         defaults.set(AltTabThumbnailSize.medium.rawValue, forKey: keyAltTabThumbnailSize)
         
-        defaults.synchronize()
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
         
