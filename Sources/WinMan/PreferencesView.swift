@@ -184,28 +184,15 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         fatalError("init(coder:) has not been implemented")
     }
     
-    nonisolated public static var isPreferencesVisible: Bool {
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated {
-                PreferencesWindowController.shared.window?.isVisible == true
-            }
-        } else {
-            return DispatchQueue.main.sync {
-                PreferencesWindowController.shared.window?.isVisible == true
-            }
-        }
+    @MainActor
+    public static var isPreferencesVisible: Bool {
+        PreferencesWindowController.shared.window?.isVisible == true
     }
 
-    nonisolated public static var preferencesWindowId: CGWindowID? {
-        if Thread.isMainThread {
-            return MainActor.assumeIsolated {
-                PreferencesWindowController.shared.window.map { CGWindowID($0.windowNumber) }
-            }
-        } else {
-            return DispatchQueue.main.sync {
-                PreferencesWindowController.shared.window.map { CGWindowID($0.windowNumber) }
-            }
-        }
+    @MainActor
+    public static var preferencesWindowId: CGWindowID? {
+        guard let win = PreferencesWindowController.shared.window else { return nil }
+        return CGWindowID(win.windowNumber)
     }
 
     nonisolated public static func showPreferences() {

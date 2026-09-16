@@ -156,17 +156,15 @@ public final class WindowListManager {
         Task.detached(priority: .userInitiated) {
             for win in windows {
                 // Check cache first (need to jump to MainActor)
-                let cachedImage: NSImage? = await MainActor.run {
+                let foundCache = await MainActor.run {
                     if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
-                        return entry.image
+                        completion(win.id, entry.image)
+                        return true
                     }
-                    return nil
+                    return false
                 }
                 
-                if let image = cachedImage {
-                    await MainActor.run {
-                        completion(win.id, image)
-                    }
+                if foundCache {
                     continue
                 }
                 
