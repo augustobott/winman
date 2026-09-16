@@ -14,14 +14,46 @@ public final class AXWindow {
         self.element = element
     }
     
+    private var _cachedId: CGWindowID?
+    
     public var id: CGWindowID {
+        if let cached = _cachedId { return cached }
+        
         var wid: CGWindowID = 0
         if _AXUIElementGetWindow(element, &wid) == .success && wid != 0 {
+            _cachedId = wid
             return wid
         }
+        
         var pid: pid_t = 0
         AXUIElementGetPid(element, &pid)
-        return CGWindowID(truncatingIfNeeded: CFHash(element) ^ UInt(bitPattern: Int(pid)))
+        
+        if let frame = self.frame {
+            let options = CGWindowListOption([.optionOnScreenOnly, .excludeDesktopElements])
+            if let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+                for winDict in windowList {
+                    if let winPid = winDict[kCGWindowOwnerPID as String] as? Int32, winPid == pid {
+                        if let boundsDict = winDict[kCGWindowBounds as String] as? [String: Any],
+                           let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) {
+                            if abs(bounds.origin.x - frame.origin.x) < 2 &&
+                               abs(bounds.origin.y - frame.origin.y) < 2 &&
+                               abs(bounds.width - frame.width) < 2 &&
+                               abs(bounds.height - frame.height) < 2 {
+                                if let wId = winDict[kCGWindowNumber as String] as? NSNumber {
+                                    let matched = CGWindowID(wId.uint32Value)
+                                    _cachedId = matched
+                                    return matched
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        let hashId = CGWindowID(truncatingIfNeeded: CFHash(element) ^ UInt(bitPattern: Int(pid)))
+        _cachedId = hashId
+        return hashId
     }
     
     public var frame: CGRect? {
@@ -95,8 +127,8 @@ public final class AXWindow {
                     AXWindow.restoreHistory.removeValue(forKey: oldest)
                 }
                 AXWindow.restoreHistoryOrder.append(winId)
+                AXWindow.restoreHistory[winId] = current
             }
-            AXWindow.restoreHistory[winId] = current
         }
     }
 
