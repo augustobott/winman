@@ -11,6 +11,8 @@ public final class WindowListManager {
     // Capped at `maxThumbnailCacheSize` entries; oldest entry is evicted when the cap is reached.
     private var thumbnailCache: [CGWindowID: (image: NSImage, timestamp: Date)] = [:]
     private var thumbnailCacheOrder: [CGWindowID] = []   // insertion-order for eviction
+    
+    private var iconCache: [pid_t: NSImage] = [:]
     private static let maxThumbnailCacheSize = 100
     
     private init() {}
@@ -27,6 +29,12 @@ public final class WindowListManager {
         let currentPid = ProcessInfo.processInfo.processIdentifier
         var windows: [SwitcherWindowInfo] = []
         var seenWindowIds = Set<CGWindowID>()
+        
+        let workspaceApps = NSWorkspace.shared.runningApplications
+        var appDict: [pid_t: NSRunningApplication] = [:]
+        for app in workspaceApps {
+            appDict[app.processIdentifier] = app
+        }
         
         // Snapshot valid cached thumbnails (< 4.0s old) in a single read
         let now = Date()
@@ -81,7 +89,7 @@ public final class WindowListManager {
             }
             
             // Check app
-            guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+            guard let app = appDict[pid] else { continue }
             guard app.activationPolicy != .prohibited else { continue }
 
             // Ignore system background UI services that run as accessory
@@ -123,11 +131,23 @@ public final class WindowListManager {
             if isCurrentApp {
                 appName = "WinMan"
                 displayTitle = "WinMan Preferences"
-                appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSApp.applicationIconImage ?? app.icon
+                if let cached = iconCache[pid] {
+                    appIcon = cached
+                } else {
+                    let icon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSApp.applicationIconImage ?? app.icon
+                    appIcon = icon
+                    iconCache[pid] = icon
+                }
             } else {
                 appName = app.localizedName ?? (dict[kCGWindowOwnerName as String] as? String ?? "App")
                 displayTitle = winTitle.isEmpty ? appName : winTitle
-                appIcon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
+                if let cached = iconCache[pid] {
+                    appIcon = cached
+                } else {
+                    let icon = app.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? app.icon
+                    appIcon = icon
+                    iconCache[pid] = icon
+                }
             }
             
             let cachedThumb = cachedThumbnails[windowId]
@@ -172,14 +192,13 @@ public final class WindowListManager {
                     let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
                     
                     await MainActor.run {
-                        if self.thumbnailCache[win.id] == nil {
-                            if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
-                               let oldest = self.thumbnailCacheOrder.first {
-                                self.thumbnailCache.removeValue(forKey: oldest)
-                                self.thumbnailCacheOrder.removeFirst()
-                            }
-                            self.thumbnailCacheOrder.append(win.id)
+                        if self.thumbnailCache[win.id] != nil {
+                            self.thumbnailCacheOrder.removeAll { $0 == win.id }
+                        } else if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize {
+                            let oldest = self.thumbnailCacheOrder.removeFirst()
+                            self.thumbnailCache.removeValue(forKey: oldest)
                         }
+                        self.thumbnailCacheOrder.append(win.id)
                         self.thumbnailCache[win.id] = (thumb, Date())
                         completion(win.id, thumb)
                     }

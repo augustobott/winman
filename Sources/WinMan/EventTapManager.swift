@@ -6,12 +6,34 @@ import CoreGraphics
 /// Manages the lifecycle of a `CGEventTap` on the main run loop.
 /// Automatically handles creation, run loop registration, event forwarding,
 /// and automatic re-enabling if disabled by the system due to timeout or user input.
+final class EventTapHandle: @unchecked Sendable {
+    var tap: CFMachPort?
+    var src: CFRunLoopSource?
+    
+    deinit {
+        if let t = tap {
+            CGEvent.tapEnable(tap: t, enable: false)
+            CFMachPortInvalidate(t)
+            if let s = src {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes)
+            }
+        }
+    }
+}
+
 @MainActor
 public final class EventTapManager {
     public typealias EventHandler = (CGEventTapProxy, CGEventType, CGEvent) -> Unmanaged<CGEvent>?
     
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var handle = EventTapHandle()
+    private var eventTap: CFMachPort? {
+        get { handle.tap }
+        set { handle.tap = newValue }
+    }
+    private var runLoopSource: CFRunLoopSource? {
+        get { handle.src }
+        set { handle.src = newValue }
+    }
     private let label: String
     private let eventMask: CGEventMask
     private let handler: EventHandler
