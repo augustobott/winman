@@ -135,20 +135,22 @@ final class WinManTests: XCTestCase {
         // Modify some preferences away from default
         prefs.easyMoveResizeEnabled = false
         prefs.hotkeySnapEnabled = false
-        prefs.altTabScope = .currentScreen
+        prefs.altTabScope = .allSpaces
         prefs.setPreset(cmd: false, ctrl: true, opt: false, shift: true)
         
         // Reset to defaults
-        prefs.resetToDefaults()
+        prefs.resetMoveResizeDefaults()
+        prefs.resetSnapDefaults()
+        prefs.resetAltTabDefaults()
         
         // Verify all settings are restored
         XCTAssertTrue(prefs.easyMoveResizeEnabled)
         XCTAssertTrue(prefs.hotkeySnapEnabled)
         XCTAssertTrue(prefs.altTabEnabled)
-        XCTAssertEqual(prefs.altTabScope, .allSpaces)
+        XCTAssertEqual(prefs.altTabScope, .currentScreen)
         XCTAssertTrue(prefs.moveCmd)
-        XCTAssertFalse(prefs.moveCtrl)
-        XCTAssertTrue(prefs.moveOpt)
+        XCTAssertTrue(prefs.moveCtrl)
+        XCTAssertFalse(prefs.moveOpt)
         XCTAssertFalse(prefs.moveShift)
     }
     
@@ -167,7 +169,9 @@ final class WinManTests: XCTestCase {
         XCTAssertFalse(prefs.moveModifiersMask.isEmpty)
         
         // Clean up
-        prefs.resetToDefaults()
+        prefs.resetMoveResizeDefaults()
+        prefs.resetSnapDefaults()
+        prefs.resetAltTabDefaults()
     }
     
     func testEventTapManagerInit() {
