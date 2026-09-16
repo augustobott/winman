@@ -89,6 +89,7 @@ public final class EasyMoveResizeEngine {
                     self.activeWindow = window
                     self.initialMouseLocation = mouseLocation
                     self.initialWindowFrame = frame
+                    window.saveCurrentForRestore()
                     
                     if isShiftResizeMatch {
                         // Shift + Left Click = Resize relative to quadrant
@@ -110,6 +111,7 @@ public final class EasyMoveResizeEngine {
                     self.activeWindow = window
                     self.initialMouseLocation = mouseLocation
                     self.initialWindowFrame = frame
+                    window.saveCurrentForRestore()
                     
                     let isRight = mouseLocation.x >= frame.midX
                     let isBottom = mouseLocation.y >= frame.midY
