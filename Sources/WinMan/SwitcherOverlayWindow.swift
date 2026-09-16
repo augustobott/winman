@@ -59,7 +59,8 @@ public final class SwitcherOverlayController: ObservableObject {
         // way to find the display the user is actively working on. It requires no
         // AX calls and is always correct at hotkey-press time.
         let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
+        let screen = AXWindow.focusedWindow()?.targetScreen()
+                     ?? NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
                      ?? NSScreen.main
         guard let screen else { return }
         let screenFrame = screen.visibleFrame
