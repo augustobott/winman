@@ -151,31 +151,39 @@ public final class WindowListManager {
         return WindowFocusTracker.shared.sortWindowsByMRU(windows)
     }
     
+    @MainActor
     public func loadThumbnailsAsync(for windows: [SwitcherWindowInfo], completion: @escaping (CGWindowID, NSImage) -> Void) {
-        Task { @MainActor in
+        Task.detached(priority: .userInitiated) {
             for win in windows {
-                if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
-                    completion(win.id, entry.image)
+                // Check cache first (need to jump to MainActor)
+                let cachedImage: NSImage? = await MainActor.run {
+                    if let entry = self.thumbnailCache[win.id], Date().timeIntervalSince(entry.timestamp) < 4.0 {
+                        return entry.image
+                    }
+                    return nil
+                }
+                
+                if let image = cachedImage {
+                    await MainActor.run {
+                        completion(win.id, image)
+                    }
                     continue
                 }
                 
-                // Fetch in background
-                Task.detached(priority: .userInitiated) {
-                    if let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, win.id, [.boundsIgnoreFraming]) {
-                        let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
-                        
-                        await MainActor.run {
-                            if self.thumbnailCache[win.id] == nil {
-                                if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
-                                   let oldest = self.thumbnailCacheOrder.first {
-                                    self.thumbnailCache.removeValue(forKey: oldest)
-                                    self.thumbnailCacheOrder.removeFirst()
-                                }
-                                self.thumbnailCacheOrder.append(win.id)
+                if let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, win.id, [.boundsIgnoreFraming]) {
+                    let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
+                    
+                    await MainActor.run {
+                        if self.thumbnailCache[win.id] == nil {
+                            if self.thumbnailCacheOrder.count >= WindowListManager.maxThumbnailCacheSize,
+                               let oldest = self.thumbnailCacheOrder.first {
+                                self.thumbnailCache.removeValue(forKey: oldest)
+                                self.thumbnailCacheOrder.removeFirst()
                             }
-                            self.thumbnailCache[win.id] = (thumb, Date())
-                            completion(win.id, thumb)
+                            self.thumbnailCacheOrder.append(win.id)
                         }
+                        self.thumbnailCache[win.id] = (thumb, Date())
+                        completion(win.id, thumb)
                     }
                 }
             }
