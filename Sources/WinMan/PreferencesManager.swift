@@ -50,14 +50,14 @@ public final class PreferencesManager: ObservableObject {
     @Published public var easyMoveResizeEnabled: Bool {
         didSet {
             persist(easyMoveResizeEnabled, forKey: keyEasyMoveResizeEnabled)
-            EasyMoveResizeEngine.shared.isEnabled = easyMoveResizeEnabled
+            
         }
     }
     
     @Published public var hotkeySnapEnabled: Bool {
         didSet {
             persist(hotkeySnapEnabled, forKey: keyHotkeySnapEnabled)
-            HotkeySnapEngine.shared.isEnabled = hotkeySnapEnabled
+            
         }
     }
     
@@ -105,7 +105,7 @@ public final class PreferencesManager: ObservableObject {
     @Published public var altTabEnabled: Bool {
         didSet {
             persist(altTabEnabled, forKey: keyAltTabEnabled)
-            AltTabEngine.shared.isEnabled = altTabEnabled
+            
         }
     }
     @Published public var altTabShowThumbnails: Bool {
@@ -248,9 +248,9 @@ public final class PreferencesManager: ObservableObject {
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
         
-        EasyMoveResizeEngine.shared.isEnabled = true
-        HotkeySnapEngine.shared.isEnabled = true
-        AltTabEngine.shared.isEnabled = true
+        
+        
+        
         NotificationCenter.default.post(name: PreferencesManager.iconChangedNotification, object: nil)
     }
 }
