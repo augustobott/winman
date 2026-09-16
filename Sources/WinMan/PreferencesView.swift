@@ -268,6 +268,29 @@ public struct PreferencesView: View {
                             
                             Toggle("Show Live Window Thumbnails", isOn: $prefs.altTabShowThumbnails)
                                 .toggleStyle(.checkbox)
+                                .onChange(of: prefs.altTabShowThumbnails) { enabled in
+                                    if enabled {
+                                        // Shows system prompt; falls back to NSAlert + System
+                                        // Settings if the prompt is suppressed (LSUIElement apps).
+                                        ScreenRecordingManager.shared.requestIfNeeded()
+                                    }
+                                }
+                            
+                            if prefs.altTabShowThumbnails && !ScreenRecordingManager.shared.isGranted {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.orange)
+                                    Text("Screen Recording permission required for thumbnails.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Button("Open Settings") {
+                                        ScreenRecordingManager.shared.openScreenRecordingPreferences()
+                                    }
+                                    .font(.caption)
+                                    .buttonStyle(.link)
+                                }
+                                .padding(.leading, 20)
+                            }
                             
                             Toggle("Live Search in Switcher (Type to filter)", isOn: $prefs.altTabEnableSearch)
                                 .toggleStyle(.checkbox)

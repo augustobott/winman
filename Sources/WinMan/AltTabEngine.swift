@@ -16,6 +16,11 @@ public final class AltTabEngine {
     private var selectedIndex: Int = 0
     private var searchQuery: String = ""
     
+    // Global mouse monitor — installed while the switcher is open so that
+    // clicking outside the overlay dismisses it (the panel is non-activating
+    // and ignores mouse events, so without this the switcher gets stuck open).
+    private var mouseMonitor: Any?
+    
     private init() {}
     
     public func start() {
@@ -197,6 +202,14 @@ public final class AltTabEngine {
         }
         
         self.isSwitcherActive = true
+        
+        // Install a global mouse monitor so clicking outside the overlay dismisses it.
+        // The switcher panel is non-activating and ignores mouse events — without this
+        // a click on another window would activate that window but leave the overlay stuck.
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.cancelSwitcher()
+        }
+        
         SwitcherOverlayController.shared.present(
             windows: filteredWindows,
             selectedIndex: selectedIndex,
@@ -277,9 +290,17 @@ public final class AltTabEngine {
         commitSelection()
     }
     
+    private func removeMouseMonitor() {
+        if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMonitor = nil
+        }
+    }
+    
     private func commitSelection() {
         guard isSwitcherActive else { return }
         isSwitcherActive = false
+        removeMouseMonitor()
         WindowHighlightPanel.shared.dismiss()
         SwitcherOverlayController.shared.dismiss()
         
@@ -293,6 +314,7 @@ public final class AltTabEngine {
     private func cancelSwitcher() {
         guard isSwitcherActive else { return }
         isSwitcherActive = false
+        removeMouseMonitor()
         WindowHighlightPanel.shared.dismiss()
         SwitcherOverlayController.shared.dismiss()
     }
