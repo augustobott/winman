@@ -107,18 +107,7 @@ public final class HotkeySnapEngine {
         let currentFrame = window.frame
         
         if action == .restore {
-            if window.restorePreviousFrame() {
-                return
-            }
-            // Fallback: If no restore history exists, center standard size
-            if let screen = window.targetScreen(forFrame: currentFrame) {
-                let screenFrame = AXWindow.screenAXVisibleFrame(screen)
-                let w = screenFrame.width * 0.75
-                let h = screenFrame.height * 0.75
-                let x = screenFrame.origin.x + (screenFrame.width - w) / 2
-                let y = screenFrame.origin.y + (screenFrame.height - h) / 2
-                window.setFrame(CGRect(x: x, y: y, width: w, height: h), saveCurrentForRestore: false)
-            }
+            window.restorePreviousFrame()
             return
         }
         
