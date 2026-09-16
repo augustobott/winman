@@ -151,7 +151,9 @@ public final class AXWindow {
         let success = setFrame(previous, saveCurrentForRestore: false)
         if success {
             AXWindow.restoreHistory.removeValue(forKey: winId)
-            AXWindow.restoreHistoryOrder.removeAll { $0 == winId }
+            if let idx = AXWindow.restoreHistoryOrder.firstIndex(of: winId) {
+                AXWindow.restoreHistoryOrder.remove(at: idx)
+            }
         }
         return success
     }

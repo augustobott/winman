@@ -13,7 +13,6 @@ public final class PreferencesManager: ObservableObject {
     private func persist(_ value: Any?, forKey key: String) {
         guard !isBatchUpdating else { return }
         defaults.set(value, forKey: key)
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
     }
     
     private func validateModifiers() {
@@ -273,7 +272,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(ctrl, forKey: keyMoveCtrl)
         defaults.set(opt, forKey: keyMoveOpt)
         defaults.set(shift, forKey: keyMoveShift)
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
     }
     
@@ -295,7 +293,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(true, forKey: keyResizeWithRightClick)
         defaults.set(MenuBarIconStyle.monochrome.rawValue, forKey: keyMenuBarIconStyle)
         
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
     }
 
@@ -315,7 +312,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(false, forKey: keySnapShift)
         defaults.set(PreferencesManager.defaultSnapBindings, forKey: keySnapBindings)
         
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
         notifySnapBindingsChanged()
     }
@@ -336,7 +332,6 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(AltTabScope.currentScreen.rawValue, forKey: keyAltTabScope)
         defaults.set(AltTabThumbnailSize.medium.rawValue, forKey: keyAltTabThumbnailSize)
         
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
     }
 }

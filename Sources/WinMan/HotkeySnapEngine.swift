@@ -14,12 +14,22 @@ public final class HotkeySnapEngine {
     
     public private(set) var bindings: [HotkeyBinding] = []
     
+    // Stored token for the block-based NotificationCenter observer.
+    // Must be removed on deinit to avoid a permanent retain cycle / leak.
+    private var bindingsObserverToken: NSObjectProtocol?
+    
     private init() {
         setupDefaultBindings()
     }
     
+    deinit {
+        if let token = bindingsObserverToken {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+    
     private func setupDefaultBindings() {
-        NotificationCenter.default.addObserver(
+        bindingsObserverToken = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("WinManSnapBindingsChanged"),
             object: nil,
             queue: .main

@@ -18,6 +18,7 @@ public final class EasyMoveResizeEngine {
     private var activeWindow: AXWindow?
     private var initialMouseLocation: CGPoint = .zero
     private var initialWindowFrame: CGRect = .zero
+    private var lastDragUpdate: Date = .distantPast
     
     public var isEnabled: Bool = true
     
@@ -108,6 +109,10 @@ public final class EasyMoveResizeEngine {
             }
             
         case .leftMouseDragged:
+            let now = Date()
+            guard now.timeIntervalSince(lastDragUpdate) > 1.0 / 60.0 else { return nil }
+            lastDragUpdate = now
+            
             switch currentMode {
             case .moving:
                 if let window = activeWindow {
@@ -136,6 +141,10 @@ public final class EasyMoveResizeEngine {
             }
             
         case .rightMouseDragged:
+            let now = Date()
+            guard now.timeIntervalSince(lastDragUpdate) > 1.0 / 60.0 else { return nil }
+            lastDragUpdate = now
+            
             if case .resizing(let isRightSide, let isBottomSide) = currentMode, let window = activeWindow {
                 resizeWindow(window, mouseLocation: mouseLocation, isRight: isRightSide, isBottom: isBottomSide)
                 return nil
