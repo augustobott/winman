@@ -90,6 +90,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     private func startEngines() {
+        cancellables.removeAll()
         WindowFocusTracker.shared.start()
         
         let prefs = PreferencesManager.shared

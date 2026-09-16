@@ -117,7 +117,6 @@ public final class AXWindow {
         return result == .success
     }
     
-    @discardableResult
     public func saveCurrentForRestore() {
         if let current = frame {
             let winId = id
