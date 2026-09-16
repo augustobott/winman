@@ -32,7 +32,6 @@ public final class PreferencesManager: ObservableObject {
     private let keyMoveShift = "moveModShift"
     
     private let keyResizeWithRightClick = "resizeWithRightClick"
-    private let keyResizeWithShift = "resizeWithShift"
     private let keyMenuBarIconStyle = "menuBarIconStyle"
     
     // Alt-Tab Preferences Keys
@@ -43,7 +42,54 @@ public final class PreferencesManager: ObservableObject {
     private let keyAltTabScope = "altTabScope"
     private let keyAltTabThumbnailSize = "altTabThumbnailSize"
     
+    // Snap Hotkey Config
+    private let keySnapCmd = "snapModCmd"
+    private let keySnapCtrl = "snapModCtrl"
+    private let keySnapOpt = "snapModOpt"
+    private let keySnapShift = "snapModShift"
+    private let keySnapBindings = "snapBindings"
+    
     public static let iconChangedNotification = Notification.Name("WinManMenuBarIconChanged")
+    
+    private static let defaultSnapBindings: [String: UInt16] = [
+        WindowAction.maximize.rawValue: 36, // Enter
+        WindowAction.restore.rawValue: 51, // Backspace
+        WindowAction.leftHalf.rawValue: 123, // Left Arrow
+        WindowAction.rightHalf.rawValue: 124, // Right Arrow
+        WindowAction.topHalf.rawValue: 126, // Up Arrow
+        WindowAction.bottomHalf.rawValue: 125, // Down Arrow
+        WindowAction.topLeftQuarter.rawValue: 32, // U
+        WindowAction.topRightQuarter.rawValue: 34, // I
+        WindowAction.bottomLeftQuarter.rawValue: 38, // J
+        WindowAction.bottomRightQuarter.rawValue: 40, // K
+        WindowAction.leftThird.rawValue: 2, // D
+        WindowAction.centerThird.rawValue: 14, // E
+        WindowAction.rightThird.rawValue: 3, // F
+        WindowAction.leftTwoThirds.rawValue: 5, // G
+        WindowAction.rightTwoThirds.rawValue: 17, // T
+        WindowAction.center.rawValue: 8, // C
+        WindowAction.increaseSize.rawValue: 24, // =
+        WindowAction.decreaseSize.rawValue: 27, // -
+        WindowAction.nextScreen.rawValue: 33, // [
+        WindowAction.prevScreen.rawValue: 30 // ]
+    ]
+    
+    @Published public var snapCmd: Bool { didSet { persist(snapCmd, forKey: keySnapCmd); notifySnapBindingsChanged() } }
+    @Published public var snapCtrl: Bool { didSet { persist(snapCtrl, forKey: keySnapCtrl); notifySnapBindingsChanged() } }
+    @Published public var snapOpt: Bool { didSet { persist(snapOpt, forKey: keySnapOpt); notifySnapBindingsChanged() } }
+    @Published public var snapShift: Bool { didSet { persist(snapShift, forKey: keySnapShift); notifySnapBindingsChanged() } }
+    @Published public var snapBindings: [String: UInt16] {
+        didSet {
+            defaults.set(snapBindings, forKey: keySnapBindings)
+            notifySnapBindingsChanged()
+        }
+    }
+    
+    private func notifySnapBindingsChanged() {
+        if !isBatchUpdating {
+            NotificationCenter.default.post(name: NSNotification.Name("WinManSnapBindingsChanged"), object: nil)
+        }
+    }
     
     // Engine toggles
     @Published public var easyMoveResizeEnabled: Bool {
@@ -89,10 +135,6 @@ public final class PreferencesManager: ObservableObject {
     @Published public var resizeWithRightClick: Bool {
         didSet { persist(resizeWithRightClick, forKey: keyResizeWithRightClick) }
     }
-    @Published public var resizeWithShift: Bool {
-        didSet { persist(resizeWithShift, forKey: keyResizeWithShift) }
-    }
-    
     @Published public var menuBarIconStyle: MenuBarIconStyle {
         didSet {
             persist(menuBarIconStyle.rawValue, forKey: keyMenuBarIconStyle)
@@ -132,13 +174,12 @@ public final class PreferencesManager: ObservableObject {
             keyMoveOpt: true,
             keyMoveShift: false,
             keyResizeWithRightClick: true,
-            keyResizeWithShift: true,
             keyMenuBarIconStyle: MenuBarIconStyle.monochrome.rawValue,
             keyAltTabEnabled: true,
             keyAltTabShowThumbnails: true,
             keyAltTabEnableSearch: true,
             keyAltTabEnableQuickNumbers: true,
-            keyAltTabScope: AltTabScope.allSpaces.rawValue,
+            keyAltTabScope: AltTabScope.currentScreen.rawValue,
             keyAltTabThumbnailSize: AltTabThumbnailSize.medium.rawValue
         ])
         
@@ -146,25 +187,35 @@ public final class PreferencesManager: ObservableObject {
         self.hotkeySnapEnabled = defaults.object(forKey: keyHotkeySnapEnabled) as? Bool ?? true
         
         self.moveCmd = defaults.object(forKey: keyMoveCmd) as? Bool ?? true
-        self.moveCtrl = defaults.object(forKey: keyMoveCtrl) as? Bool ?? false
-        self.moveOpt = defaults.object(forKey: keyMoveOpt) as? Bool ?? true
+        self.moveCtrl = defaults.object(forKey: keyMoveCtrl) as? Bool ?? true
+        self.moveOpt = defaults.object(forKey: keyMoveOpt) as? Bool ?? false
         self.moveShift = defaults.object(forKey: keyMoveShift) as? Bool ?? false
         self.resizeWithRightClick = defaults.object(forKey: keyResizeWithRightClick) as? Bool ?? true
-        self.resizeWithShift = defaults.object(forKey: keyResizeWithShift) as? Bool ?? true
         
         let savedStyle = defaults.string(forKey: keyMenuBarIconStyle) ?? MenuBarIconStyle.monochrome.rawValue
         self.menuBarIconStyle = MenuBarIconStyle(rawValue: savedStyle) ?? .monochrome
         
         self.altTabEnabled = defaults.object(forKey: keyAltTabEnabled) as? Bool ?? true
-        self.altTabShowThumbnails = defaults.object(forKey: keyAltTabShowThumbnails) as? Bool ?? true
-        self.altTabEnableSearch = defaults.object(forKey: keyAltTabEnableSearch) as? Bool ?? true
-        self.altTabEnableQuickNumbers = defaults.object(forKey: keyAltTabEnableQuickNumbers) as? Bool ?? true
+        self.altTabShowThumbnails = defaults.object(forKey: keyAltTabShowThumbnails) as? Bool ?? false
+        self.altTabEnableSearch = defaults.object(forKey: keyAltTabEnableSearch) as? Bool ?? false
+        self.altTabEnableQuickNumbers = defaults.object(forKey: keyAltTabEnableQuickNumbers) as? Bool ?? false
         
         let savedScope = defaults.string(forKey: keyAltTabScope) ?? AltTabScope.allSpaces.rawValue
         self.altTabScope = AltTabScope(rawValue: savedScope) ?? .allSpaces
         
         let savedSize = defaults.string(forKey: keyAltTabThumbnailSize) ?? AltTabThumbnailSize.medium.rawValue
         self.altTabThumbnailSize = AltTabThumbnailSize(rawValue: savedSize) ?? .medium
+        
+        self.snapCmd = defaults.object(forKey: keySnapCmd) as? Bool ?? false
+        self.snapCtrl = defaults.object(forKey: keySnapCtrl) as? Bool ?? true
+        self.snapOpt = defaults.object(forKey: keySnapOpt) as? Bool ?? true
+        self.snapShift = defaults.object(forKey: keySnapShift) as? Bool ?? false
+        
+        if let saved = defaults.dictionary(forKey: keySnapBindings) as? [String: UInt16] {
+            self.snapBindings = saved
+        } else {
+            self.snapBindings = PreferencesManager.defaultSnapBindings
+        }
     }
     
     public var moveModifiersMask: CGEventFlags {
@@ -174,6 +225,24 @@ public final class PreferencesManager: ObservableObject {
         if moveOpt { flags.insert(.maskAlternate) }
         if moveShift { flags.insert(.maskShift) }
         return flags
+    }
+    
+    public var snapModifiersMask: CGEventFlags {
+        var flags: CGEventFlags = []
+        if snapCmd { flags.insert(.maskCommand) }
+        if snapCtrl { flags.insert(.maskControl) }
+        if snapOpt { flags.insert(.maskAlternate) }
+        if snapShift { flags.insert(.maskShift) }
+        return flags
+    }
+    
+    public var snapDisplayString: String {
+        var parts: [String] = []
+        if snapCtrl { parts.append("⌃ Control") }
+        if snapOpt { parts.append("⌥ Option") }
+        if snapShift { parts.append("⇧ Shift") }
+        if snapCmd { parts.append("⌘ Command") }
+        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
     
     public var displayString: String {
@@ -208,46 +277,66 @@ public final class PreferencesManager: ObservableObject {
         isBatchUpdating = false
     }
     
-    public func resetToDefaults() {
+    public func resetMoveResizeDefaults() {
         isBatchUpdating = true
         self.easyMoveResizeEnabled = true
-        self.hotkeySnapEnabled = true
         self.moveCmd = true
-        self.moveCtrl = false
-        self.moveOpt = true
+        self.moveCtrl = true
+        self.moveOpt = false
         self.moveShift = false
         self.resizeWithRightClick = true
-        self.resizeWithShift = true
         self.menuBarIconStyle = .monochrome
-        self.altTabEnabled = true
-        self.altTabShowThumbnails = true
-        self.altTabEnableSearch = true
-        self.altTabEnableQuickNumbers = true
-        self.altTabScope = .allSpaces
-        self.altTabThumbnailSize = .medium
         
         defaults.set(true, forKey: keyEasyMoveResizeEnabled)
-        defaults.set(true, forKey: keyHotkeySnapEnabled)
         defaults.set(true, forKey: keyMoveCmd)
-        defaults.set(false, forKey: keyMoveCtrl)
-        defaults.set(true, forKey: keyMoveOpt)
+        defaults.set(true, forKey: keyMoveCtrl)
+        defaults.set(false, forKey: keyMoveOpt)
         defaults.set(false, forKey: keyMoveShift)
         defaults.set(true, forKey: keyResizeWithRightClick)
-        defaults.set(true, forKey: keyResizeWithShift)
         defaults.set(MenuBarIconStyle.monochrome.rawValue, forKey: keyMenuBarIconStyle)
+        
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        isBatchUpdating = false
+    }
+
+    public func resetSnapDefaults() {
+        isBatchUpdating = true
+        self.hotkeySnapEnabled = true
+        self.snapCmd = false
+        self.snapCtrl = true
+        self.snapOpt = true
+        self.snapShift = false
+        self.snapBindings = PreferencesManager.defaultSnapBindings
+        
+        defaults.set(true, forKey: keyHotkeySnapEnabled)
+        defaults.set(false, forKey: keySnapCmd)
+        defaults.set(true, forKey: keySnapCtrl)
+        defaults.set(true, forKey: keySnapOpt)
+        defaults.set(false, forKey: keySnapShift)
+        defaults.set(PreferencesManager.defaultSnapBindings, forKey: keySnapBindings)
+        
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        isBatchUpdating = false
+        notifySnapBindingsChanged()
+    }
+    
+    public func resetAltTabDefaults() {
+        isBatchUpdating = true
+        self.altTabEnabled = true
+        self.altTabShowThumbnails = false
+        self.altTabEnableSearch = false
+        self.altTabEnableQuickNumbers = false
+        self.altTabScope = .currentScreen
+        self.altTabThumbnailSize = .medium
+        
         defaults.set(true, forKey: keyAltTabEnabled)
-        defaults.set(true, forKey: keyAltTabShowThumbnails)
-        defaults.set(true, forKey: keyAltTabEnableSearch)
-        defaults.set(true, forKey: keyAltTabEnableQuickNumbers)
-        defaults.set(AltTabScope.allSpaces.rawValue, forKey: keyAltTabScope)
+        defaults.set(false, forKey: keyAltTabShowThumbnails)
+        defaults.set(false, forKey: keyAltTabEnableSearch)
+        defaults.set(false, forKey: keyAltTabEnableQuickNumbers)
+        defaults.set(AltTabScope.currentScreen.rawValue, forKey: keyAltTabScope)
         defaults.set(AltTabThumbnailSize.medium.rawValue, forKey: keyAltTabThumbnailSize)
         
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
         isBatchUpdating = false
-        
-        
-        
-        
-        NotificationCenter.default.post(name: PreferencesManager.iconChangedNotification, object: nil)
     }
 }

@@ -39,145 +39,121 @@ public final class AltTabEngine {
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        
-        guard isEnabled else {
-            return Unmanaged.passRetained(event)
-        }
+        guard isEnabled else { return Unmanaged.passRetained(event) }
         
         let flags = event.flags
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let prefs = PreferencesManager.shared
         
-        // Handle Modifier Key Release (Commit Selection)
         if type == .flagsChanged {
-            if isSwitcherActive {
-                // If Option was released, commit selection
-                let optionHeld = flags.contains(.maskAlternate)
-                if !optionHeld {
-                    DispatchQueue.main.async {
-                        self.commitSelection()
-                    }
-                    return nil
-                }
-            }
-            return Unmanaged.passRetained(event)
+            return handleFlagsChanged(flags: flags, event: event)
         }
         
         guard type == .keyDown else {
             return Unmanaged.passRetained(event)
         }
         
+        if !isSwitcherActive {
+            return handleKeyDownWhenInactive(keyCode: keyCode, flags: flags, prefs: prefs, event: event)
+        } else {
+            return handleKeyDownWhenActive(keyCode: keyCode, flags: flags, prefs: prefs, event: event)
+        }
+    }
+    
+    private func handleFlagsChanged(flags: CGEventFlags, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if isSwitcherActive {
+            let optionHeld = flags.contains(.maskAlternate)
+            if !optionHeld {
+                DispatchQueue.main.async {
+                    self.commitSelection()
+                }
+                return nil
+            }
+        }
+        return Unmanaged.passRetained(event)
+    }
+    
+    private func handleKeyDownWhenInactive(keyCode: CGKeyCode, flags: CGEventFlags, prefs: PreferencesManager, event: CGEvent) -> Unmanaged<CGEvent>? {
         let hasOption = flags.contains(.maskAlternate)
         let hasShift = flags.contains(.maskShift)
         
-        // State 1: Switcher NOT active -> Detect Option + Tab trigger
-        if !isSwitcherActive {
-            if hasOption && keyCode == KeyCode.tab {
-                self.isSwitcherActive = true // Set synchronously to prevent race conditions with key repeats
-                DispatchQueue.main.async {
-                    self.openSwitcher(reverse: hasShift)
-                }
-                return nil
+        if hasOption && keyCode == KeyCode.tab {
+            self.isSwitcherActive = true
+            DispatchQueue.main.async {
+                self.openSwitcher(reverse: hasShift)
             }
-            return Unmanaged.passRetained(event)
+            return nil
         }
+        return Unmanaged.passRetained(event)
+    }
+    
+    private func handleKeyDownWhenActive(keyCode: CGKeyCode, flags: CGEventFlags, prefs: PreferencesManager, event: CGEvent) -> Unmanaged<CGEvent>? {
+        let hasShift = flags.contains(.maskShift)
         
-        // State 2: Switcher IS active -> Handle navigation, search, actions
+        if handleNavigation(keyCode: keyCode, hasShift: hasShift) { return nil }
         
-        // Cycle Tab
+        if handleDirectJump(keyCode: keyCode, prefs: prefs) { return nil }
+        
+        if handleWindowActions(keyCode: keyCode, flags: flags) { return nil }
+        
+        if handleLiveSearch(keyCode: keyCode, event: event, prefs: prefs) { return nil }
+        
+        return nil
+    }
+    
+    private func handleNavigation(keyCode: CGKeyCode, hasShift: Bool) -> Bool {
         if keyCode == KeyCode.tab {
-            DispatchQueue.main.async {
-                self.cycleSelection(reverse: hasShift)
-            }
-            return nil
+            DispatchQueue.main.async { self.cycleSelection(reverse: hasShift) }
+            return true
         }
-        
-        // 2D Grid Arrow Navigation
         if keyCode == KeyCode.rightArrow {
-            DispatchQueue.main.async {
-                self.navigateGrid(deltaX: 1, deltaY: 0)
-            }
-            return nil
+            DispatchQueue.main.async { self.navigateGrid(deltaX: 1, deltaY: 0) }
+            return true
         }
         if keyCode == KeyCode.leftArrow {
-            DispatchQueue.main.async {
-                self.navigateGrid(deltaX: -1, deltaY: 0)
-            }
-            return nil
+            DispatchQueue.main.async { self.navigateGrid(deltaX: -1, deltaY: 0) }
+            return true
         }
         if keyCode == KeyCode.downArrow {
-            DispatchQueue.main.async {
-                self.navigateGrid(deltaX: 0, deltaY: 1)
-            }
-            return nil
+            DispatchQueue.main.async { self.navigateGrid(deltaX: 0, deltaY: 1) }
+            return true
         }
         if keyCode == KeyCode.upArrow {
-            DispatchQueue.main.async {
-                self.navigateGrid(deltaX: 0, deltaY: -1)
-            }
-            return nil
+            DispatchQueue.main.async { self.navigateGrid(deltaX: 0, deltaY: -1) }
+            return true
         }
-        
-        // Enter / Commit
         if keyCode == KeyCode.enter {
-            DispatchQueue.main.async {
-                self.commitSelection()
-            }
-            return nil
+            DispatchQueue.main.async { self.commitSelection() }
+            return true
         }
-        
-        // Escape / Cancel
         if keyCode == KeyCode.escape {
-            DispatchQueue.main.async {
-                self.cancelSwitcher()
-            }
-            return nil
+            DispatchQueue.main.async { self.cancelSwitcher() }
+            return true
         }
-        
-        // Direct 1-9 Jump (suppressed during active search so digits can be typed into query)
+        return false
+    }
+    
+    private func handleDirectJump(keyCode: CGKeyCode, prefs: PreferencesManager) -> Bool {
         if prefs.altTabEnableQuickNumbers && searchQuery.isEmpty, let numberIndex = numberIndex(from: keyCode) {
-            DispatchQueue.main.async {
-                self.selectAndCommit(index: numberIndex)
-            }
-            return nil
+            DispatchQueue.main.async { self.selectAndCommit(index: numberIndex) }
+            return true
         }
-        
-        // In-Switcher Actions
+        return false
+    }
+    
+    private func handleWindowActions(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
         let hasCmdOrCtrl = flags.contains(.maskCommand) || flags.contains(.maskControl)
         if !hasCmdOrCtrl {
-            if keyCode == KeyCode.w {
-                DispatchQueue.main.async {
-                    self.closeSelectedWindow()
-                }
-                return nil
-            }
-            if keyCode == KeyCode.m {
-                DispatchQueue.main.async {
-                    self.minimizeSelectedWindow()
-                }
-                return nil
-            }
-            if keyCode == KeyCode.h {
-                DispatchQueue.main.async {
-                    self.hideSelectedApp()
-                }
-                return nil
-            }
-            if keyCode == KeyCode.f {
-                DispatchQueue.main.async {
-                    self.fullscreenSelectedWindow()
-                }
-                return nil
-            }
-            if keyCode == KeyCode.q {
-                DispatchQueue.main.async {
-                    self.quitSelectedApp()
-                }
-                return nil
-            }
+            if keyCode == KeyCode.w { DispatchQueue.main.async { self.closeSelectedWindow() }; return true }
+            if keyCode == KeyCode.m { DispatchQueue.main.async { self.minimizeSelectedWindow() }; return true }
+            if keyCode == KeyCode.h { DispatchQueue.main.async { self.hideSelectedApp() }; return true }
+            if keyCode == KeyCode.f { DispatchQueue.main.async { self.fullscreenSelectedWindow() }; return true }
+            if keyCode == KeyCode.q { DispatchQueue.main.async { self.quitSelectedApp() }; return true }
         }
-        
-        // Live Search Handling
+        return false
+    }
+    
+    private func handleLiveSearch(keyCode: CGKeyCode, event: CGEvent, prefs: PreferencesManager) -> Bool {
         if prefs.altTabEnableSearch {
             if keyCode == KeyCode.backspace {
                 DispatchQueue.main.async {
@@ -185,19 +161,18 @@ public final class AltTabEngine {
                     self.searchQuery.removeLast()
                     self.applySearchFilter()
                 }
-                return nil
+                return true
             } else if let chars = event.characters, let firstChar = chars.first {
                 if firstChar.isLetter || firstChar.isNumber || firstChar == " " {
                     DispatchQueue.main.async {
                         self.searchQuery.append(firstChar)
                         self.applySearchFilter()
                     }
-                    return nil
+                    return true
                 }
             }
         }
-        
-        return nil
+        return false
     }
     
     // MARK: - Switcher Actions

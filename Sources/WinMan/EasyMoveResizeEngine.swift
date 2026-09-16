@@ -64,13 +64,7 @@ public final class EasyMoveResizeEngine {
                           (currentFlags == [.maskCommand, .maskAlternate]) ||
                           (currentFlags == [.maskControl, .maskAlternate])
         
-        let isShiftResizeMatch = (prefs.resizeWithShift && !prefs.moveShift) && (
-            (!targetMoveFlags.isEmpty && currentFlags == targetMoveFlags.union(.maskShift)) ||
-            (currentFlags == [.maskCommand, .maskAlternate, .maskShift]) ||
-            (currentFlags == [.maskControl, .maskAlternate, .maskShift])
-        )
-        
-        guard isMoveMatch || isShiftResizeMatch else {
+        guard isMoveMatch else {
             if type == .leftMouseDown {
                 // Normal click on a window - track focus after activation settles
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -84,25 +78,18 @@ public final class EasyMoveResizeEngine {
         
         switch type {
         case .leftMouseDown:
-            if isMoveMatch || isShiftResizeMatch {
+            if isMoveMatch {
                 if let window = AXWindow.windowAt(point: mouseLocation), let frame = window.frame {
                     self.activeWindow = window
                     self.initialMouseLocation = mouseLocation
                     self.initialWindowFrame = frame
                     window.saveCurrentForRestore()
                     
-                    if isShiftResizeMatch {
-                        // Shift + Left Click = Resize relative to quadrant
-                        let isRight = mouseLocation.x >= frame.midX
-                        let isBottom = mouseLocation.y >= frame.midY
-                        self.currentMode = .resizing(isRightSide: isRight, isBottomSide: isBottom)
-                    } else {
-                        // Left Click = Move
-                        self.currentMode = .moving
-                    }
+                    // Left Click = Move
+                    self.currentMode = .moving
+                    
                     return nil // Intercept & swallow event
                 }
-
             }
             
         case .rightMouseDown:
