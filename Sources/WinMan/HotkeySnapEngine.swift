@@ -212,6 +212,11 @@ public final class HotkeySnapEngine {
             let nextScreen = screens[nextIndex]
             let nextScreenFrame = AXWindow.screenAXVisibleFrame(nextScreen)
             
+            // Guard against a disconnected/headless display reporting zero dimensions,
+            // which would produce NaN from the proportional-scale divisions below.
+            guard screenFrame.width > 0, screenFrame.height > 0,
+                  nextScreenFrame.width > 0, nextScreenFrame.height > 0 else { return }
+            
             if let current = currentFrame {
                 // Scale proportional position & size
                 let relX = (current.origin.x - screenFrame.origin.x) / screenFrame.width
