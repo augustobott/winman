@@ -15,7 +15,22 @@ public final class WindowListManager {
     private var iconCache: [pid_t: NSImage] = [:]
     private static let maxThumbnailCacheSize = 100
     
-    private init() {}
+    private init() {
+        // Evict icon cache entries for terminated applications so we don't
+        // accumulate NSImage objects for processes that no longer exist.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAppTerminated(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAppTerminated(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication else { return }
+        iconCache.removeValue(forKey: app.processIdentifier)
+    }
     
     public func fetchOpenWindows(scope: AltTabScope = .allSpaces) -> [SwitcherWindowInfo] {
         let options: CGWindowListOption = (scope == .allSpaces)
