@@ -16,7 +16,7 @@
 A native macOS super app combining **Easy-Move-Resize**, **Rectangle window snapping**, and **AltTab (Community & Pro Unlocked)** into a single unified utility.
 
 <p align="center">
-  <img src="Resources/AppIcon.png" width="160" alt="WinMan App Icon" />
+  <img src="Sources/WinMan/Resources/AppIcon.png" width="160" alt="WinMan App Icon" />
 </p>
 
 ## Download

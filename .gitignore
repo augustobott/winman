@@ -30,3 +30,5 @@ WinMan.App
 *.zip.sha256
 *.dmg
 
+notes.md
+code_review.md

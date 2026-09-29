@@ -33,12 +33,9 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${{ github.ref_name }}"
           else
-            VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist 2>/dev/null || echo "")
-            if [ -n "${VERSION}" ]; then
-              TAG="v${VERSION}"
-            else
-              TAG="latest"
-            fi
+            # Fallback: derive from the most recent git tag so we never
+            # diverge from what is actually in the repo history.
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "latest")
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 

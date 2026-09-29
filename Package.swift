@@ -17,7 +17,7 @@ let package = Package(
             name: "WinMan",
             path: "Sources/WinMan",
             resources: [
-                .copy("../../Resources")
+                .copy("Resources")
             ]
         ),
         .testTarget(
