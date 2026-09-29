@@ -60,10 +60,34 @@ public final class WindowFocusTracker {
     }
     
     @objc private func handleAppTerminated(_ notification: Notification) {
-        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-           app.processIdentifier == observedPid {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication else { return }
+
+        // Detach the AX observer if we were watching this app
+        if app.processIdentifier == observedPid {
             detachAxObserver()
         }
+
+        // Eagerly evict all window IDs that belonged to the terminated PID.
+        // CGWindowList still briefly contains the dying process's windows at this
+        // notification point, so we can identify them precisely.
+        let pid = app.processIdentifier
+        if let infoList = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] {
+            let deadIds = Set(infoList.compactMap { dict -> CGWindowID? in
+                guard let wPid = dict[kCGWindowOwnerPID as String] as? pid_t, wPid == pid,
+                      let wid = dict[kCGWindowNumber as String] as? CGWindowID else { return nil }
+                return wid
+            })
+            if !deadIds.isEmpty {
+                focusOrder.removeAll { deadIds.contains($0) }
+                return
+            }
+        }
+
+        // Fallback: if CGWindowList no longer has the process at all, we can't
+        // identify individual window IDs. Prune will happen lazily in sortWindowsByMRU.
     }
     
     public func recordFocus(windowId: CGWindowID) {
@@ -171,6 +195,12 @@ public final class WindowFocusTracker {
     }
     
     public func sortWindowsByMRU(_ windows: [SwitcherWindowInfo]) -> [SwitcherWindowInfo] {
+        // Lazy prune: remove any focusOrder entry whose ID is no longer in the live
+        // window set. This catches individual window closes (red ✕) that don't fire
+        // an app-termination notification, keeping the MRU list accurate over time.
+        let liveIds = Set(windows.map { $0.id })
+        focusOrder.removeAll { !liveIds.contains($0) }
+
         let order = self.focusOrder
         
         var focusRank: [CGWindowID: Int] = [:]

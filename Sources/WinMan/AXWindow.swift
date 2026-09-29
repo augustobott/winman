@@ -3,6 +3,7 @@ import AppKit
 import ApplicationServices
 
 
+@MainActor
 public final class AXWindow {
     public let element: AXUIElement
     
