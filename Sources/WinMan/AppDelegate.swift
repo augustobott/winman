@@ -60,6 +60,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         print("[WinMan] Accessibility revoked! Stopping engines...")
         stopEngines()
         
+        // Mark that TCC triggered this, so applicationWillTerminate can safely auto-relaunch.
+        wasRevokedByTCC = true
+        
         // Start polling again so we recover if they re-grant it
         if permissionTimer == nil {
             permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
@@ -68,6 +71,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
                     timer.invalidate()
                     Task { @MainActor [weak self] in
                         self?.permissionTimer = nil
+                        self?.wasRevokedByTCC = false  // Cleared: no need to relaunch now
                         self?.startEngines()
                     }
                 }
@@ -425,6 +429,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     private var isIntentionalQuit = false
+    /// Set to true when we observe that TCC just revoked Accessibility while the app was running.
+    /// This is the only legitimate case where we want to auto-relaunch.
+    private var wasRevokedByTCC = false
 
     @objc private func quitApp() {
         isIntentionalQuit = true
@@ -432,16 +439,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
-        if !isIntentionalQuit {
-            // Workaround for macOS TCC "Quit & Reopen" bug with LSUIElement apps.
-            // If the system (TCC) terminates us to apply Screen Recording permissions,
-            // we spawn a detached shell process to ensure we relaunch after a brief delay.
-            let bundlePath = Bundle.main.bundlePath
-            let script = "sleep 0.5; open \"$1\""
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/sh")
-            process.arguments = ["-c", script, "--", bundlePath]
-            try? process.run()
-        }
+        // Only auto-relaunch when:
+        //   1. The quit was NOT initiated by the user (menu "Quit WinMan" or Cmd+Q), AND
+        //   2. We have evidence that macOS TCC was the cause (Accessibility was revoked
+        //      while the engines were running, which triggers a "Quit & Reopen" cycle).
+        //
+        // This prevents an unkillable zombie loop when the user (or any tool) sends
+        // SIGTERM / SIGKILL from Terminal or Activity Monitor.
+        guard !isIntentionalQuit, wasRevokedByTCC else { return }
+
+        let bundlePath = Bundle.main.bundlePath
+        let script = "sleep 0.5; open \"$1\""
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script, "--", bundlePath]
+        try? process.run()
     }
 }
