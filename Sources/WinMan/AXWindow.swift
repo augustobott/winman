@@ -185,37 +185,71 @@ public final class AXWindow {
         var elementUnderCursor: AXUIElement?
         let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementUnderCursor)
         
-        guard result == .success, let elem = elementUnderCursor else {
-            return focusedWindow()
-        }
-        
-        // Find window ancestor
-        var current: AXUIElement? = elem
-        while let el = current {
-            var role: AnyObject?
-            if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &role) == .success,
-               let roleStr = role as? String, roleStr == (kAXWindowRole as String) {
-                return AXWindow(element: el)
-            }
-            
-            // Check kAXWindowAttribute
-            var winObj: AnyObject?
-            if AXUIElementCopyAttributeValue(el, kAXWindowAttribute as CFString, &winObj) == .success,
-               let win = winObj, CFGetTypeID(win) == AXUIElementGetTypeID() {
-                return AXWindow(element: win as! AXUIElement)
-            }
-            
-            // Climb to parent
-            var parent: AnyObject?
-            if AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
-               let p = parent, CFGetTypeID(p) == AXUIElementGetTypeID() {
-                current = (p as! AXUIElement)
-            } else {
-                break
+        if result == .success, let elem = elementUnderCursor {
+            // Find window ancestor
+            var current: AXUIElement? = elem
+            while let el = current {
+                var role: AnyObject?
+                if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &role) == .success,
+                   let roleStr = role as? String, roleStr == (kAXWindowRole as String) {
+                    return AXWindow(element: el)
+                }
+                
+                // Check kAXWindowAttribute
+                var winObj: AnyObject?
+                if AXUIElementCopyAttributeValue(el, kAXWindowAttribute as CFString, &winObj) == .success,
+                   let win = winObj, CFGetTypeID(win) == AXUIElementGetTypeID() {
+                    return AXWindow(element: win as! AXUIElement)
+                }
+                
+                // Climb to parent
+                var parent: AnyObject?
+                if AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
+                   let p = parent, CFGetTypeID(p) == AXUIElementGetTypeID() {
+                    current = (p as! AXUIElement)
+                } else {
+                    break
+                }
             }
         }
         
-        return focusedWindow()
+        // Fallback: If AX tree climbing fails, use CGWindowList to find the topmost window at this point
+        let options = CGWindowListOption([.optionOnScreenOnly, .excludeDesktopElements])
+        if let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+            for winDict in windowList {
+                // We only care about standard window layers (usually 0)
+                guard let layer = winDict[kCGWindowLayer as String] as? Int, layer <= 0 else { continue }
+                
+                if let boundsDict = winDict[kCGWindowBounds as String] as? [String: Any],
+                   let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
+                   bounds.contains(point) {
+                    
+                    if let pid = winDict[kCGWindowOwnerPID as String] as? Int32 {
+                        let appElement = AXUIElementCreateApplication(pid)
+                        var windowListObj: AnyObject?
+                        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowListObj) == .success,
+                           let array = windowListObj as? [AXUIElement] {
+                            
+                            // Find the matching window by frame
+                            for axWin in array {
+                                let win = AXWindow(element: axWin)
+                                if let frame = win.frame,
+                                   abs(frame.origin.x - bounds.origin.x) < 2,
+                                   abs(frame.origin.y - bounds.origin.y) < 2,
+                                   abs(frame.width - bounds.width) < 2,
+                                   abs(frame.height - bounds.height) < 2 {
+                                    return win
+                                }
+                            }
+                        }
+                    }
+                    // Stop at the first visible window that contains the point
+                    break
+                }
+            }
+        }
+        
+        return nil
     }
     
     // MARK: - Screen helpers
