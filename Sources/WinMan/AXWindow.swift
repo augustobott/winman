@@ -187,9 +187,12 @@ public final class AXWindow {
         let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &elementUnderCursor)
         
         if result == .success, let elem = elementUnderCursor {
-            // Find window ancestor
+            // Find window ancestor — capped at 50 hops to guard against circular
+            // parent references in undocumented or custom UI frameworks.
             var current: AXUIElement? = elem
-            while let el = current {
+            var depth = 0
+            while let el = current, depth < 50 {
+                defer { depth += 1 }
                 var role: AnyObject?
                 if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &role) == .success,
                    let roleStr = role as? String, roleStr == (kAXWindowRole as String) {
