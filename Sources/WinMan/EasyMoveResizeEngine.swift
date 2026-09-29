@@ -79,34 +79,45 @@ public final class EasyMoveResizeEngine {
         
         switch type {
         case .leftMouseDown:
-            if isMoveMatch {
-                if let window = AXWindow.windowAt(point: mouseLocation), let frame = window.frame {
+            // Swallow the event immediately — modifier keys are confirmed and we are
+            // going to act on it. Resolve the target window asynchronously on the next
+            // runloop tick so we never block the event tap callback with slow AX calls.
+            // The first leftMouseDragged event is always queued AFTER this mouseDown is
+            // fully processed, so activeWindow will be set before any drag begins.
+            self.currentMode = .moving   // optimistic: cleared if windowAt returns nil
+            let capturedLocation = mouseLocation
+            DispatchQueue.main.async {
+                if let window = AXWindow.windowAt(point: capturedLocation), let frame = window.frame {
                     self.activeWindow = window
-                    self.initialMouseLocation = mouseLocation
+                    self.initialMouseLocation = capturedLocation
                     self.initialWindowFrame = frame
                     window.saveCurrentForRestore()
-                    
-                    // Left Click = Move
-                    self.currentMode = .moving
-                    
-                    return nil // Intercept & swallow event
+                } else {
+                    // No window under cursor — cancel the speculative mode.
+                    self.currentMode = .none
                 }
             }
+            return nil // Intercept & swallow event
             
         case .rightMouseDown:
-            if prefs.resizeWithRightClick && isMoveMatch {
-                if let window = AXWindow.windowAt(point: mouseLocation), let frame = window.frame {
+            guard prefs.resizeWithRightClick else { break }
+            // Same async pattern as leftMouseDown.
+            self.currentMode = .resizing(isRightSide: false, isBottomSide: false) // placeholder
+            let capturedLocation = mouseLocation
+            DispatchQueue.main.async {
+                if let window = AXWindow.windowAt(point: capturedLocation), let frame = window.frame {
                     self.activeWindow = window
-                    self.initialMouseLocation = mouseLocation
+                    self.initialMouseLocation = capturedLocation
                     self.initialWindowFrame = frame
                     window.saveCurrentForRestore()
-                    
-                    let isRight = mouseLocation.x >= frame.midX
-                    let isBottom = mouseLocation.y >= frame.midY
+                    let isRight = capturedLocation.x >= frame.midX
+                    let isBottom = capturedLocation.y >= frame.midY
                     self.currentMode = .resizing(isRightSide: isRight, isBottomSide: isBottom)
-                    return nil // Intercept & swallow event
+                } else {
+                    self.currentMode = .none
                 }
             }
+            return nil // Intercept & swallow event
             
         case .leftMouseDragged:
             let now = Date()
