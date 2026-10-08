@@ -258,6 +258,29 @@ public final class AXWindow {
     
     // MARK: - Screen helpers
     
+    /// The screen representing the coordinate origin (0, 0) in Cocoa.
+    /// In multi-monitor setups, NSScreen.screens[0] is not guaranteed to remain the zero-point screen
+    /// across display reconfiguration or sleep/wake events.
+    public static var primaryScreen: NSScreen? {
+        return NSScreen.screens.first(where: { $0.frame.origin == .zero }) ?? NSScreen.screens.first
+    }
+    
+    public static var primaryScreenHeight: CGFloat {
+        return primaryScreen?.frame.height ?? (NSScreen.screens.first?.frame.height ?? 0)
+    }
+
+    public static func screenAXFrame(_ screen: NSScreen) -> CGRect {
+        let primaryHeight = primaryScreenHeight
+        let cocoaFrame = screen.frame
+        let axY = primaryHeight - (cocoaFrame.origin.y + cocoaFrame.size.height)
+        return CGRect(
+            x: cocoaFrame.origin.x,
+            y: axY,
+            width: cocoaFrame.size.width,
+            height: cocoaFrame.size.height
+        )
+    }
+    
     public func targetScreen(forFrame customFrame: CGRect? = nil) -> NSScreen? {
         let winFrame = customFrame ?? frame ?? CGRect(x: 0, y: 0, width: 800, height: 600)
         let winCenter = CGPoint(x: winFrame.midX, y: winFrame.midY)
@@ -265,19 +288,9 @@ public final class AXWindow {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return NSScreen.main }
         
-        let primaryHeight = screens.first?.frame.height ?? 0
-        
         // Single pass: map screens to their AX frames once
         let screenAXFrames: [(screen: NSScreen, axFrame: CGRect)] = screens.map { screen in
-            let cocoaFrame = screen.visibleFrame
-            let axY = primaryHeight - (cocoaFrame.origin.y + cocoaFrame.size.height)
-            let axFrame = CGRect(
-                x: cocoaFrame.origin.x,
-                y: axY,
-                width: cocoaFrame.size.width,
-                height: cocoaFrame.size.height
-            )
-            return (screen, axFrame)
+            (screen, AXWindow.screenAXFrame(screen))
         }
         
         // 1. Check center point containment
@@ -303,7 +316,7 @@ public final class AXWindow {
     }
     
     public static func screenAXVisibleFrame(_ screen: NSScreen) -> CGRect {
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let primaryHeight = primaryScreenHeight
         let cocoaFrame = screen.visibleFrame
         let axY = primaryHeight - (cocoaFrame.origin.y + cocoaFrame.size.height)
         return CGRect(
