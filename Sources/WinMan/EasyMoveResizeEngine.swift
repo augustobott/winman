@@ -49,9 +49,30 @@ public final class EasyMoveResizeEngine {
         self.activeWindow = nil
     }
     
+    private func minDragInterval(at location: CGPoint) -> TimeInterval {
+        // Find which screen contains the cursor to honor its native refresh rate (e.g. 60Hz vs 120Hz ProMotion)
+        for screen in NSScreen.screens {
+            let axFrame = AXWindow.screenAXFrame(screen)
+            if axFrame.contains(location) {
+                let fps = max(60, screen.maximumFramesPerSecond)
+                // Use 85% of nominal frame duration to accommodate runloop/timer jitter
+                return (1.0 / Double(fps)) * 0.85
+            }
+        }
+        return (1.0 / 120.0) * 0.85
+    }
+    
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         guard isEnabled else {
             return Unmanaged.passRetained(event)
+        }
+        
+        // Unconditionally terminate active drag/resize session on mouse up,
+        // even if the user released modifier keys before releasing the mouse button.
+        if (type == .leftMouseUp || type == .rightMouseUp) && currentMode != .none {
+            self.currentMode = .none
+            self.activeWindow = nil
+            return nil
         }
         
         let flags = event.flags
@@ -79,49 +100,33 @@ public final class EasyMoveResizeEngine {
         
         switch type {
         case .leftMouseDown:
-            // Swallow the event immediately — modifier keys are confirmed and we are
-            // going to act on it. Resolve the target window asynchronously on the next
-            // runloop tick so we never block the event tap callback with slow AX calls.
-            // The first leftMouseDragged event is always queued AFTER this mouseDown is
-            // fully processed, so activeWindow will be set before any drag begins.
-            self.currentMode = .moving   // optimistic: cleared if windowAt returns nil
-            let capturedLocation = mouseLocation
-            DispatchQueue.main.async {
-                if let window = AXWindow.windowAt(point: capturedLocation), let frame = window.frame {
-                    self.activeWindow = window
-                    self.initialMouseLocation = capturedLocation
-                    self.initialWindowFrame = frame
-                    window.saveCurrentForRestore()
-                } else {
-                    // No window under cursor — cancel the speculative mode.
-                    self.currentMode = .none
-                }
+            if let window = AXWindow.windowAt(point: mouseLocation), let frame = window.frame {
+                self.activeWindow = window
+                self.initialMouseLocation = mouseLocation
+                self.initialWindowFrame = frame
+                window.saveCurrentForRestore()
+                self.currentMode = .moving
+                return nil // Intercept & swallow event
             }
-            return nil // Intercept & swallow event
+            return Unmanaged.passRetained(event)
             
         case .rightMouseDown:
             guard prefs.resizeWithRightClick else { break }
-            // Same async pattern as leftMouseDown.
-            self.currentMode = .resizing(isRightSide: false, isBottomSide: false) // placeholder
-            let capturedLocation = mouseLocation
-            DispatchQueue.main.async {
-                if let window = AXWindow.windowAt(point: capturedLocation), let frame = window.frame {
-                    self.activeWindow = window
-                    self.initialMouseLocation = capturedLocation
-                    self.initialWindowFrame = frame
-                    window.saveCurrentForRestore()
-                    let isRight = capturedLocation.x >= frame.midX
-                    let isBottom = capturedLocation.y >= frame.midY
-                    self.currentMode = .resizing(isRightSide: isRight, isBottomSide: isBottom)
-                } else {
-                    self.currentMode = .none
-                }
+            if let window = AXWindow.windowAt(point: mouseLocation), let frame = window.frame {
+                self.activeWindow = window
+                self.initialMouseLocation = mouseLocation
+                self.initialWindowFrame = frame
+                window.saveCurrentForRestore()
+                let isRight = mouseLocation.x >= frame.midX
+                let isBottom = mouseLocation.y >= frame.midY
+                self.currentMode = .resizing(isRightSide: isRight, isBottomSide: isBottom)
+                return nil // Intercept & swallow event
             }
-            return nil // Intercept & swallow event
+            return Unmanaged.passRetained(event)
             
         case .leftMouseDragged:
             let now = Date()
-            guard now.timeIntervalSince(lastDragUpdate) > 1.0 / 60.0 else { return nil }
+            guard now.timeIntervalSince(lastDragUpdate) >= minDragInterval(at: mouseLocation) else { return nil }
             lastDragUpdate = now
             
             switch currentMode {
@@ -131,12 +136,20 @@ public final class EasyMoveResizeEngine {
                     let dy = mouseLocation.y - initialMouseLocation.y
                     var newOrigin = CGPoint(x: initialWindowFrame.origin.x + dx, y: initialWindowFrame.origin.y + dy)
                     
-                    if let screen = window.targetScreen() {
+                    let proposedFrame = CGRect(origin: newOrigin, size: initialWindowFrame.size)
+                    
+                    // Constrain Y so the window titlebar does not get dragged completely above the menu bar:
+                    if let screen = window.targetScreen(forFrame: proposedFrame) {
                         let sf = AXWindow.screenAXVisibleFrame(screen)
-                        // Don't allow dragging completely above the menu bar or below the screen
                         newOrigin.y = max(sf.minY, min(newOrigin.y, sf.maxY - 20))
-                        // Don't allow dragging completely off the left/right edges
-                        newOrigin.x = max(sf.minX - initialWindowFrame.width + 40, min(newOrigin.x, sf.maxX - 40))
+                    }
+                    
+                    // Constrain X across the union of ALL screens so the window can move smoothly
+                    // between monitors without artificial edge traps or sudden jumps.
+                    let allAXFrames = NSScreen.screens.map { AXWindow.screenAXFrame($0) }
+                    if let minX = allAXFrames.map({ $0.minX }).min(),
+                       let maxX = allAXFrames.map({ $0.maxX }).max() {
+                        newOrigin.x = max(minX - initialWindowFrame.width + 40, min(newOrigin.x, maxX - 40))
                     }
                     
                     window.setPosition(newOrigin)
@@ -153,7 +166,7 @@ public final class EasyMoveResizeEngine {
             
         case .rightMouseDragged:
             let now = Date()
-            guard now.timeIntervalSince(lastDragUpdate) > 1.0 / 60.0 else { return nil }
+            guard now.timeIntervalSince(lastDragUpdate) >= minDragInterval(at: mouseLocation) else { return nil }
             lastDragUpdate = now
             
             if case .resizing(let isRightSide, let isBottomSide) = currentMode, let window = activeWindow {
