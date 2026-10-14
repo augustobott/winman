@@ -3,20 +3,142 @@ import AppKit
 
 public struct PreferencesView: View {
     @ObservedObject var prefs = PreferencesManager.shared
+    @ObservedObject var router = BrowserRouterManager.shared
+    @State private var newRulePattern: String = ""
+    @State private var newRuleTarget: String = "prompt"
     
     public init() {}
     
-        public var body: some View {
+    public var body: some View {
         TabView {
+            globalTab
+                .tabItem { Text("Global") }
             moveResizeTab
                 .tabItem { Text("Move & Resize") }
             snapTab
                 .tabItem { Text("Snapping") }
             altTab
                 .tabItem { Text("Alt-Tab") }
+            browserRouterTab
+                .tabItem { Text("Browser Router") }
         }
         .padding()
-        .frame(width: 550, height: 600)
+        .frame(width: 580, height: 620)
+    }
+    
+    private var globalTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                // Header
+                HStack {
+                    Text("Global Settings")
+                        .font(.system(size: 18, weight: .bold))
+                    Spacer()
+                }
+                
+                Text("Manage system startup, menu bar appearance, and general application behavior.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                
+                Divider()
+                
+                // Startup
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("System Startup")
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    Toggle("Start WinMan automatically at login", isOn: Binding(
+                        get: { prefs.launchAtLogin },
+                        set: { prefs.setLaunchAtLogin($0) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    
+                    Text("Launches WinMan in the background as a menu bar item when you log into your Mac.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                
+                // Menu Bar Icon Style
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Menu Bar Icon Style")
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    Picker("Icon Style:", selection: $prefs.menuBarIconStyle) {
+                        ForEach(MenuBarIconStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    
+                    Text(prefs.menuBarIconStyle == .monochrome
+                         ? "Monochrome icon blends into macOS Tahoe / Sequoia menu bar and adapts to Dark & Light mode automatically."
+                         : "Displays the vibrant, colorful application icon in the menu bar.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                
+                // System Permissions Status
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Permissions Status")
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    HStack {
+                        Image(systemName: AccessibilityManager.shared.isTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundColor(AccessibilityManager.shared.isTrusted ? .green : .orange)
+                        Text("Accessibility:")
+                            .font(.subheadline)
+                        Text(AccessibilityManager.shared.isTrusted ? "Enabled" : "Required for Window Management")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        if !AccessibilityManager.shared.isTrusted {
+                            Button("Open Settings") {
+                                AccessibilityManager.shared.openAccessibilityPreferences()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                    
+                    HStack {
+                        Image(systemName: ScreenRecordingManager.shared.isGranted ? "checkmark.circle.fill" : "info.circle.fill")
+                            .foregroundColor(ScreenRecordingManager.shared.isGranted ? .green : .secondary)
+                        Text("Screen Recording:")
+                            .font(.subheadline)
+                        Text(ScreenRecordingManager.shared.isGranted ? "Enabled" : "Optional (Alt-Tab previews)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        if !ScreenRecordingManager.shared.isGranted {
+                            Button("Open Settings") {
+                                ScreenRecordingManager.shared.openScreenRecordingPreferences()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                
+                // Version & Reset
+                HStack {
+                    Text("WinMan v2.0.0")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button("Reset Global Defaults") {
+                        prefs.resetGlobalDefaults()
+                    }
+                    .controlSize(.small)
+                }
+            }
+            .padding(20)
+        }
     }
     
     private var moveResizeTab: some View {
@@ -82,27 +204,6 @@ public struct PreferencesView: View {
                     
                     Toggle("Right-Click & Drag with Move Modifiers", isOn: $prefs.resizeWithRightClick)
                         .toggleStyle(.checkbox)
-                }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
-                
-                // Menu Bar Icon Style
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Menu Bar Icon Style")
-                        .font(.system(size: 14, weight: .semibold))
-                    
-                    Picker("Icon Style:", selection: $prefs.menuBarIconStyle) {
-                        ForEach(MenuBarIconStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.radioGroup)
-                    
-                    Text(prefs.menuBarIconStyle == .monochrome
-                         ? "Monochrome icon blends into macOS Tahoe / Sequoia menu bar and adapts to Dark & Light mode automatically."
-                         : "Displays the vibrant, colorful application icon in the menu bar.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
@@ -308,6 +409,204 @@ public struct PreferencesView: View {
                     Spacer()
                     Button("Reset Defaults") {
                         prefs.resetAltTabDefaults()
+                    }
+                    .controlSize(.small)
+                }
+            }
+            .padding(20)
+        }
+    }
+    
+    private var browserRouterTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                // Header
+                HStack {
+                    Text("Browser Router")
+                        .font(.system(size: 18, weight: .bold))
+                    Spacer()
+                }
+                
+                Text("Route URLs to different browsers automatically based on domain patterns, or show a quick browser picker HUD.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                
+                Divider()
+                
+                // Main toggle & General Settings
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable Browser Router", isOn: $prefs.browserRouterEnabled)
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    if prefs.browserRouterEnabled {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Primary Browser
+                            HStack {
+                                Text("Primary Browser:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Picker("", selection: $prefs.browserRouterDefaultBrowserBundleId) {
+                                    ForEach(router.installedBrowsers) { browser in
+                                        Label {
+                                            Text(browser.name)
+                                        } icon: {
+                                            if let icon = browser.menuIcon {
+                                                Image(nsImage: icon)
+                                            } else {
+                                                Image(systemName: "globe")
+                                            }
+                                        }
+                                        .tag(browser.bundleId)
+                                    }
+                                }
+                                .frame(width: 200)
+                                .labelsHidden()
+                            }
+                            
+                            // General Behavior
+                            HStack {
+                                Text("Default Action:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Picker("", selection: $prefs.browserRouterBehavior) {
+                                    Text("Open in Primary Browser").tag(BrowserPickerBehavior.openDefault.rawValue)
+                                    Text("Always Show Browser Picker").tag(BrowserPickerBehavior.alwaysPrompt.rawValue)
+                                }
+                                .frame(width: 220)
+                                .labelsHidden()
+                            }
+                            
+                            Divider()
+                            
+                            Toggle("Hold ⌥ Option when clicking link to show Browser Picker", isOn: $prefs.browserRouterOptionKeyPrompts)
+                                .toggleStyle(.checkbox)
+                            
+                            Toggle("Remove tracking parameters (utm_*, fbclid, gclid, etc.)", isOn: $prefs.browserRouterStripTracking)
+                                .toggleStyle(.checkbox)
+                        }
+                        .padding(.leading, 18)
+                    }
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                
+                // URL Routing Rules
+                if prefs.browserRouterEnabled {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("URL Routing Rules")
+                                .font(.system(size: 14, weight: .semibold))
+                            Spacer()
+                            Text("\(prefs.browserRouterRules.count) rules")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("Add domain or path patterns (e.g. *.google.com, github.com, zoom.us/j/) to direct specific links to a browser.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        // Add rule bar
+                        HStack(spacing: 8) {
+                            TextField("Domain or path (e.g. *.google.com)", text: $newRulePattern)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            Picker("", selection: $newRuleTarget) {
+                                Label("Always Prompt", systemImage: "questionmark.app")
+                                    .tag("prompt")
+                                ForEach(router.installedBrowsers) { browser in
+                                    Label {
+                                        Text(browser.name)
+                                    } icon: {
+                                        if let icon = browser.menuIcon {
+                                            Image(nsImage: icon)
+                                        } else {
+                                            Image(systemName: "globe")
+                                        }
+                                    }
+                                    .tag(browser.bundleId)
+                                }
+                            }
+                            .frame(width: 170)
+                            .labelsHidden()
+                            
+                            Button("Add Rule") {
+                                let pattern = newRulePattern.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !pattern.isEmpty {
+                                    prefs.addBrowserRouterRule(pattern: pattern, targetBrowserBundleId: newRuleTarget)
+                                    newRulePattern = ""
+                                }
+                            }
+                            .disabled(newRulePattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        .padding(.vertical, 4)
+                        
+                        // Rules list
+                        if prefs.browserRouterRules.isEmpty {
+                            Text("No routing rules configured yet.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 8)
+                        } else {
+                            VStack(spacing: 6) {
+                                ForEach($prefs.browserRouterRules) { $rule in
+                                    HStack {
+                                        Toggle("", isOn: $rule.isEnabled)
+                                            .toggleStyle(.checkbox)
+                                            .labelsHidden()
+                                        
+                                        Text(rule.pattern)
+                                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                            .foregroundColor(rule.isEnabled ? .primary : .secondary)
+                                        
+                                        Spacer()
+                                        
+                                        Picker("", selection: $rule.targetBrowserBundleId) {
+                                            Label("Always Prompt", systemImage: "questionmark.app")
+                                                .tag("prompt")
+                                            ForEach(router.installedBrowsers) { browser in
+                                                Label {
+                                                    Text(browser.name)
+                                                } icon: {
+                                                    if let icon = browser.menuIcon {
+                                                        Image(nsImage: icon)
+                                                    } else {
+                                                        Image(systemName: "globe")
+                                                    }
+                                                }
+                                                .tag(browser.bundleId)
+                                            }
+                                        }
+                                        .frame(width: 170)
+                                        .labelsHidden()
+                                        
+                                        Button(action: {
+                                            prefs.removeBrowserRouterRule(id: rule.id)
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(.leading, 4)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color(NSColor.textBackgroundColor)))
+                                }
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                }
+                
+                HStack {
+                    Spacer()
+                    Button("Reset Defaults") {
+                        prefs.resetBrowserRouterDefaults()
                     }
                     .controlSize(.small)
                 }

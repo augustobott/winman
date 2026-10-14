@@ -11,12 +11,12 @@ final class EventTapHandle: @unchecked Sendable {
     var src: CFRunLoopSource?
     
     deinit {
+        if let s = src {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes)
+        }
         if let t = tap {
             CGEvent.tapEnable(tap: t, enable: false)
             CFMachPortInvalidate(t)
-            if let s = src {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .commonModes)
-            }
         }
     }
 }
@@ -81,25 +81,23 @@ public final class EventTapManager {
     
     public func stop() {
         if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap) // Explicitly invalidate the mach port so it doesn't linger
             if let src = runLoopSource {
                 CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
                 self.runLoopSource = nil
             }
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
             self.eventTap = nil
         }
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if AccessibilityManager.shared.isTrusted {
-                print("[WinMan] Event tap disabled (\(type)). Re-enabling...")
-                if let tap = eventTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
-            } else {
-                print("[WinMan] Event tap disabled and Accessibility revoked. Not re-enabling.")
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                print("[WinMan] Event tap re-enabled after \(type).")
+            } else if !AccessibilityManager.shared.isTrusted {
+                print("[WinMan] Event tap disabled and Accessibility revoked.")
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: NSNotification.Name("AccessibilityRevoked"), object: nil)
                 }
