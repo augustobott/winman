@@ -1,10 +1,13 @@
 import Foundation
 import CoreGraphics
 import Combine
+import ServiceManagement
 
 @MainActor
 public final class PreferencesManager: ObservableObject {
     public static let shared = PreferencesManager()
+    
+    @Published public var launchAtLogin: Bool = false
     
     // Dedicated persistent UserDefaults
     private let defaults = UserDefaults.standard
@@ -40,6 +43,14 @@ public final class PreferencesManager: ObservableObject {
     private let keyAltTabEnableQuickNumbers = "altTabEnableQuickNumbers"
     private let keyAltTabScope = "altTabScope"
     private let keyAltTabThumbnailSize = "altTabThumbnailSize"
+    
+    // Browser Router Keys
+    private let keyBrowserRouterEnabled = "browserRouterEnabled"
+    private let keyBrowserRouterDefaultBrowser = "browserRouterDefaultBrowser"
+    private let keyBrowserRouterBehavior = "browserRouterBehavior"
+    private let keyBrowserRouterStripTracking = "browserRouterStripTracking"
+    private let keyBrowserRouterOptionKeyPrompts = "browserRouterOptionKeyPrompts"
+    private let keyBrowserRouterRules = "browserRouterRules"
     
     // Snap Hotkey Config
     private let keySnapCmd = "snapModCmd"
@@ -164,6 +175,30 @@ public final class PreferencesManager: ObservableObject {
         didSet { persist(altTabThumbnailSize.rawValue, forKey: keyAltTabThumbnailSize) }
     }
     
+    // Browser Router Properties
+    @Published public var browserRouterEnabled: Bool {
+        didSet { persist(browserRouterEnabled, forKey: keyBrowserRouterEnabled) }
+    }
+    @Published public var browserRouterDefaultBrowserBundleId: String {
+        didSet { persist(browserRouterDefaultBrowserBundleId, forKey: keyBrowserRouterDefaultBrowser) }
+    }
+    @Published public var browserRouterBehavior: String {
+        didSet { persist(browserRouterBehavior, forKey: keyBrowserRouterBehavior) }
+    }
+    @Published public var browserRouterStripTracking: Bool {
+        didSet { persist(browserRouterStripTracking, forKey: keyBrowserRouterStripTracking) }
+    }
+    @Published public var browserRouterOptionKeyPrompts: Bool {
+        didSet { persist(browserRouterOptionKeyPrompts, forKey: keyBrowserRouterOptionKeyPrompts) }
+    }
+    @Published public var browserRouterRules: [URLRoutingRule] {
+        didSet {
+            if let data = try? JSONEncoder().encode(browserRouterRules) {
+                persist(data, forKey: keyBrowserRouterRules)
+            }
+        }
+    }
+    
     private init() {
         defaults.register(defaults: [
             keyEasyMoveResizeEnabled: true,
@@ -179,7 +214,12 @@ public final class PreferencesManager: ObservableObject {
             keyAltTabEnableSearch: true,
             keyAltTabEnableQuickNumbers: true,
             keyAltTabScope: AltTabScope.currentScreen.rawValue,
-            keyAltTabThumbnailSize: AltTabThumbnailSize.medium.rawValue
+            keyAltTabThumbnailSize: AltTabThumbnailSize.medium.rawValue,
+            keyBrowserRouterEnabled: true,
+            keyBrowserRouterDefaultBrowser: "com.apple.Safari",
+            keyBrowserRouterBehavior: BrowserPickerBehavior.openDefault.rawValue,
+            keyBrowserRouterStripTracking: true,
+            keyBrowserRouterOptionKeyPrompts: true
         ])
         
         self.easyMoveResizeEnabled = defaults.object(forKey: keyEasyMoveResizeEnabled) as? Bool ?? true
@@ -215,6 +255,20 @@ public final class PreferencesManager: ObservableObject {
         } else {
             self.snapBindings = PreferencesManager.defaultSnapBindings
         }
+        
+        self.browserRouterEnabled = defaults.object(forKey: keyBrowserRouterEnabled) as? Bool ?? true
+        self.browserRouterDefaultBrowserBundleId = defaults.string(forKey: keyBrowserRouterDefaultBrowser) ?? "com.apple.Safari"
+        self.browserRouterBehavior = defaults.string(forKey: keyBrowserRouterBehavior) ?? BrowserPickerBehavior.openDefault.rawValue
+        self.browserRouterStripTracking = defaults.object(forKey: keyBrowserRouterStripTracking) as? Bool ?? true
+        self.browserRouterOptionKeyPrompts = defaults.object(forKey: keyBrowserRouterOptionKeyPrompts) as? Bool ?? true
+        if let data = defaults.data(forKey: keyBrowserRouterRules),
+           let rules = try? JSONDecoder().decode([URLRoutingRule].self, from: data) {
+            self.browserRouterRules = rules
+        } else {
+            self.browserRouterRules = []
+        }
+        
+        self.launchAtLogin = (SMAppService.mainApp.status == .enabled)
     }
     
     public var moveModifiersMask: CGEventFlags {
@@ -333,5 +387,56 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(AltTabThumbnailSize.medium.rawValue, forKey: keyAltTabThumbnailSize)
         
         isBatchUpdating = false
+    }
+    
+    public func addBrowserRouterRule(pattern: String, targetBrowserBundleId: String) {
+        let rule = URLRoutingRule(pattern: pattern, targetBrowserBundleId: targetBrowserBundleId)
+        browserRouterRules.append(rule)
+    }
+    
+    public func removeBrowserRouterRule(id: UUID) {
+        browserRouterRules.removeAll { $0.id == id }
+    }
+    
+    public func resetBrowserRouterDefaults() {
+        isBatchUpdating = true
+        self.browserRouterEnabled = true
+        self.browserRouterDefaultBrowserBundleId = "com.apple.Safari"
+        self.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
+        self.browserRouterStripTracking = true
+        self.browserRouterOptionKeyPrompts = true
+        self.browserRouterRules = []
+        
+        defaults.set(true, forKey: keyBrowserRouterEnabled)
+        defaults.set("com.apple.Safari", forKey: keyBrowserRouterDefaultBrowser)
+        defaults.set(BrowserPickerBehavior.openDefault.rawValue, forKey: keyBrowserRouterBehavior)
+        defaults.set(true, forKey: keyBrowserRouterStripTracking)
+        defaults.set(true, forKey: keyBrowserRouterOptionKeyPrompts)
+        defaults.removeObject(forKey: keyBrowserRouterRules)
+        
+        isBatchUpdating = false
+    }
+    
+    public func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                }
+            }
+            self.launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        } catch {
+            print("[WinMan] Failed to toggle launch at login: \(error)")
+            self.launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        }
+    }
+    
+    public func resetGlobalDefaults() {
+        self.menuBarIconStyle = .monochrome
+        self.setLaunchAtLogin(false)
     }
 }

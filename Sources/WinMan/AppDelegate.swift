@@ -59,11 +59,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func handleAccessibilityRevoked() {
         print("[WinMan] Accessibility revoked! Stopping engines...")
         stopEngines()
+        rebuildMenu()
         
-        // Mark that TCC triggered this, so applicationWillTerminate can safely auto-relaunch.
-        wasRevokedByTCC = true
-        
-        // Start polling again so we recover if they re-grant it
+        // Start polling so we recover if the user re-grants it in System Settings
         if permissionTimer == nil {
             permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
                 if AccessibilityManager.shared.isTrusted {
@@ -71,8 +69,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
                     timer.invalidate()
                     Task { @MainActor [weak self] in
                         self?.permissionTimer = nil
-                        self?.wasRevokedByTCC = false  // Cleared: no need to relaunch now
                         self?.startEngines()
+                        self?.rebuildMenu()
                     }
                 }
             }
@@ -121,6 +119,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         
         prefs.$altTabEnabled.sink { enabled in
             AltTabEngine.shared.isEnabled = enabled
+        }.store(in: &cancellables)
+        
+        prefs.$browserRouterEnabled.sink { [weak self] _ in
+            self?.rebuildMenu()
         }.store(in: &cancellables)
         
         // Request Screen Recording permission here — after Accessibility is confirmed granted —
@@ -268,6 +270,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         altTabItem.state = prefs.altTabEnabled ? .on : .off
         menu.addItem(altTabItem)
         
+        let browserItem = NSMenuItem(
+            title: "Browser Router",
+            action: #selector(toggleBrowserRouter),
+            keyEquivalent: ""
+        )
+        browserItem.target = self
+        browserItem.state = prefs.browserRouterEnabled ? .on : .off
+        menu.addItem(browserItem)
+        
+        let clipboardURLItem = NSMenuItem(
+            title: "Open URL from Clipboard...",
+            action: #selector(openURLFromClipboard),
+            keyEquivalent: ""
+        )
+        clipboardURLItem.target = self
+        menu.addItem(clipboardURLItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Quick Actions Submenu
@@ -359,6 +378,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         PreferencesManager.shared.altTabEnabled.toggle()
     }
     
+    @objc private func toggleBrowserRouter() {
+        PreferencesManager.shared.browserRouterEnabled.toggle()
+        rebuildMenu()
+    }
+    
+    @objc private func openURLFromClipboard() {
+        BrowserRouterManager.shared.openFromClipboard()
+    }
+    
+    public func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            BrowserRouterManager.shared.handle(url: url)
+        }
+    }
+    
     @objc private func performMenuAction(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? WindowAction else { return }
         HotkeySnapEngine.shared.execute(action: action)
@@ -428,31 +462,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         alert.runModal()
     }
     
-    private var isIntentionalQuit = false
-    /// Set to true when we observe that TCC just revoked Accessibility while the app was running.
-    /// This is the only legitimate case where we want to auto-relaunch.
-    private var wasRevokedByTCC = false
-
     @objc private func quitApp() {
-        isIntentionalQuit = true
         NSApplication.shared.terminate(nil)
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
-        // Only auto-relaunch when:
-        //   1. The quit was NOT initiated by the user (menu "Quit WinMan" or Cmd+Q), AND
-        //   2. We have evidence that macOS TCC was the cause (Accessibility was revoked
-        //      while the engines were running, which triggers a "Quit & Reopen" cycle).
-        //
-        // This prevents an unkillable zombie loop when the user (or any tool) sends
-        // SIGTERM / SIGKILL from Terminal or Activity Monitor.
-        guard !isIntentionalQuit, wasRevokedByTCC else { return }
-
-        let bundlePath = Bundle.main.bundlePath
-        let script = "sleep 0.5; open \"$1\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script, "--", bundlePath]
-        try? process.run()
+        stopEngines()
     }
 }

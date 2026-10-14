@@ -1,5 +1,6 @@
 import XCTest
 import AppKit
+import SwiftUI
 @testable import WinMan
 
 @MainActor
@@ -191,5 +192,142 @@ final class WinManTests: XCTestCase {
         XCTAssertTrue(tracker.focusOrder.contains(99999))
         tracker.removeWindow(windowId: 99999)
         XCTAssertFalse(tracker.focusOrder.contains(99999))
+    }
+    
+    func testTrackingParameterStripping() {
+        let manager = BrowserRouterManager.shared
+        
+        let urlWithTracking = URL(string: "https://example.com/article?utm_source=twitter&utm_medium=social&utm_campaign=spring2026&fbclid=12345&gclid=67890&keep=this")!
+        let cleaned = manager.stripTrackingParameters(from: urlWithTracking)
+        
+        XCTAssertEqual(cleaned.host, "example.com")
+        XCTAssertEqual(cleaned.path, "/article")
+        let components = URLComponents(url: cleaned, resolvingAgainstBaseURL: false)!
+        XCTAssertEqual(components.queryItems?.count, 1)
+        XCTAssertEqual(components.queryItems?.first?.name, "keep")
+        XCTAssertEqual(components.queryItems?.first?.value, "this")
+        
+        let urlNoTracking = URL(string: "https://example.com/page?foo=bar")!
+        XCTAssertEqual(manager.stripTrackingParameters(from: urlNoTracking), urlNoTracking)
+        
+        let urlOnlyTracking = URL(string: "https://example.com/test?utm_source=newsletter&fbclid=abc")!
+        let strippedAll = manager.stripTrackingParameters(from: urlOnlyTracking)
+        XCTAssertEqual(strippedAll.query, nil)
+    }
+    
+    func testURLRoutingRuleMatching() {
+        // Subdomain / Domain rule
+        let githubRule = URLRoutingRule(pattern: "github.com", targetBrowserBundleId: "com.apple.Safari")
+        XCTAssertTrue(githubRule.matches(url: URL(string: "https://github.com/winman/WinMan")!))
+        XCTAssertTrue(githubRule.matches(url: URL(string: "https://api.github.com/repos")!))
+        XCTAssertFalse(githubRule.matches(url: URL(string: "https://notgithub.com")!))
+        
+        // Wildcard rule
+        let googleWildcard = URLRoutingRule(pattern: "*.google.com", targetBrowserBundleId: "com.google.Chrome")
+        XCTAssertTrue(googleWildcard.matches(url: URL(string: "https://mail.google.com/mail/u/0")!))
+        XCTAssertTrue(googleWildcard.matches(url: URL(string: "https://docs.google.com")!))
+        XCTAssertFalse(googleWildcard.matches(url: URL(string: "https://google.org")!))
+        
+        // Prefix / Path rule
+        let zoomRule = URLRoutingRule(pattern: "zoom.us/j/", targetBrowserBundleId: "us.zoom.xos")
+        XCTAssertTrue(zoomRule.matches(url: URL(string: "https://zoom.us/j/123456789")!))
+        XCTAssertFalse(zoomRule.matches(url: URL(string: "https://zoom.us/about")!))
+        
+        // Disabled rule flag check
+        var disabledRule = URLRoutingRule(pattern: "github.com", targetBrowserBundleId: "com.apple.Safari")
+        disabledRule.isEnabled = false
+        XCTAssertFalse(disabledRule.isEnabled)
+    }
+    
+    func testBrowserRouterPreferences() {
+        let prefs = PreferencesManager.shared
+        
+        // Test defaults reset
+        prefs.browserRouterEnabled = false
+        prefs.browserRouterStripTracking = false
+        prefs.browserRouterBehavior = BrowserPickerBehavior.alwaysPrompt.rawValue
+        
+        prefs.addBrowserRouterRule(pattern: "test.com", targetBrowserBundleId: "com.apple.Safari")
+        guard let addedRule = prefs.browserRouterRules.first(where: { $0.pattern == "test.com" }) else {
+            XCTFail("Rule was not added")
+            return
+        }
+        
+        prefs.removeBrowserRouterRule(id: addedRule.id)
+        XCTAssertFalse(prefs.browserRouterRules.contains(where: { $0.id == addedRule.id }))
+        
+        prefs.resetBrowserRouterDefaults()
+        XCTAssertTrue(prefs.browserRouterEnabled)
+        XCTAssertTrue(prefs.browserRouterStripTracking)
+        XCTAssertTrue(prefs.browserRouterOptionKeyPrompts)
+        XCTAssertEqual(prefs.browserRouterBehavior, BrowserPickerBehavior.openDefault.rawValue)
+        XCTAssertEqual(prefs.browserRouterRules.count, 0)
+    }
+    
+    func testBrowserModelsAndPickerBehavior() {
+        let browser = InstalledBrowser(
+            bundleId: "com.apple.Safari",
+            name: "Safari",
+            appURL: URL(fileURLWithPath: "/Applications/Safari.app"),
+            icon: nil
+        )
+        XCTAssertEqual(browser.id, "com.apple.Safari")
+        XCTAssertEqual(browser.name, "Safari")
+        
+        XCTAssertEqual(BrowserPickerBehavior.openDefault.rawValue, "openDefault")
+        XCTAssertEqual(BrowserPickerBehavior.alwaysPrompt.rawValue, "alwaysPrompt")
+    }
+    
+    func testBrowserPickerKeyHandler() {
+        var confirmed = false
+        var quickNum: Int? = nil
+        var cancelled = false
+        var selectedIndex = 0
+        
+        let handler = BrowserPickerKeyHandler(
+            browserCount: 3,
+            selectedIndex: Binding(get: { selectedIndex }, set: { selectedIndex = $0 }),
+            onConfirm: { confirmed = true },
+            onQuickNumber: { quickNum = $0 },
+            onCancel: { cancelled = true }
+        )
+        
+        let keyView = BrowserPickerKeyHandler.KeyView()
+        keyView.parent = handler
+        
+        // Escape (keycode 53)
+        let escEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 53)!
+        keyView.keyDown(with: escEvent)
+        XCTAssertTrue(cancelled)
+        
+        // Return (keycode 36)
+        let returnEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+        keyView.keyDown(with: returnEvent)
+        XCTAssertTrue(confirmed)
+        
+        // Right arrow (keycode 124)
+        let rightEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 124)!
+        keyView.keyDown(with: rightEvent)
+        XCTAssertEqual(selectedIndex, 1)
+        
+        // Left arrow (keycode 123)
+        let leftEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 123)!
+        keyView.keyDown(with: leftEvent)
+        XCTAssertEqual(selectedIndex, 0)
+        
+        // Quick number '2'
+        let numEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "2", charactersIgnoringModifiers: "2", isARepeat: false, keyCode: 19)!
+        keyView.keyDown(with: numEvent)
+        XCTAssertEqual(quickNum, 2)
+    }
+    
+    func testGlobalPreferences() {
+        let prefs = PreferencesManager.shared
+        prefs.menuBarIconStyle = .color
+        XCTAssertEqual(prefs.menuBarIconStyle, .color)
+        
+        prefs.resetGlobalDefaults()
+        XCTAssertEqual(prefs.menuBarIconStyle, .monochrome)
+        XCTAssertFalse(prefs.launchAtLogin)
     }
 }
