@@ -55,6 +55,7 @@ public final class PreferencesManager: ObservableObject {
     
     // Browser Router Keys
     private let keyBrowserRouterEnabled = "browserRouterEnabled"
+    private let keyBrowserRouterCheckDefaultOnLaunch = "browserRouterCheckDefaultOnLaunch"
     private let keyBrowserRouterDefaultBrowser = "browserRouterDefaultBrowser"
     private let keyBrowserRouterBehavior = "browserRouterBehavior"
     private let keyBrowserRouterStripTracking = "browserRouterStripTracking"
@@ -200,6 +201,9 @@ public final class PreferencesManager: ObservableObject {
     @Published public var browserRouterOptionKeyPrompts: Bool {
         didSet { persist(browserRouterOptionKeyPrompts, forKey: keyBrowserRouterOptionKeyPrompts) }
     }
+    @Published public var browserRouterCheckDefaultOnLaunch: Bool {
+        didSet { persist(browserRouterCheckDefaultOnLaunch, forKey: keyBrowserRouterCheckDefaultOnLaunch) }
+    }
     @Published public var browserRouterRules: [URLRoutingRule] {
         didSet {
             if let data = try? JSONEncoder().encode(browserRouterRules) {
@@ -228,7 +232,8 @@ public final class PreferencesManager: ObservableObject {
             keyBrowserRouterDefaultBrowser: "com.apple.Safari",
             keyBrowserRouterBehavior: BrowserPickerBehavior.openDefault.rawValue,
             keyBrowserRouterStripTracking: true,
-            keyBrowserRouterOptionKeyPrompts: true
+            keyBrowserRouterOptionKeyPrompts: true,
+            keyBrowserRouterCheckDefaultOnLaunch: true
         ])
         
         self.easyMoveResizeEnabled = defaults.object(forKey: keyEasyMoveResizeEnabled) as? Bool ?? true
@@ -270,6 +275,7 @@ public final class PreferencesManager: ObservableObject {
         self.browserRouterBehavior = defaults.string(forKey: keyBrowserRouterBehavior) ?? BrowserPickerBehavior.openDefault.rawValue
         self.browserRouterStripTracking = defaults.object(forKey: keyBrowserRouterStripTracking) as? Bool ?? true
         self.browserRouterOptionKeyPrompts = defaults.object(forKey: keyBrowserRouterOptionKeyPrompts) as? Bool ?? true
+        self.browserRouterCheckDefaultOnLaunch = defaults.object(forKey: keyBrowserRouterCheckDefaultOnLaunch) as? Bool ?? true
         if let data = defaults.data(forKey: keyBrowserRouterRules),
            let rules = try? JSONDecoder().decode([URLRoutingRule].self, from: data) {
             self.browserRouterRules = rules
@@ -414,6 +420,7 @@ public final class PreferencesManager: ObservableObject {
         self.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
         self.browserRouterStripTracking = true
         self.browserRouterOptionKeyPrompts = true
+        self.browserRouterCheckDefaultOnLaunch = true
         self.browserRouterRules = []
         
         defaults.set(true, forKey: keyBrowserRouterEnabled)
@@ -421,6 +428,7 @@ public final class PreferencesManager: ObservableObject {
         defaults.set(BrowserPickerBehavior.openDefault.rawValue, forKey: keyBrowserRouterBehavior)
         defaults.set(true, forKey: keyBrowserRouterStripTracking)
         defaults.set(true, forKey: keyBrowserRouterOptionKeyPrompts)
+        defaults.set(true, forKey: keyBrowserRouterCheckDefaultOnLaunch)
         defaults.removeObject(forKey: keyBrowserRouterRules)
         
         isBatchUpdating = false

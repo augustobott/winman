@@ -124,13 +124,30 @@ public struct PreferencesView: View {
                             .controlSize(.small)
                         }
                     }
+                    
+                    HStack {
+                        Image(systemName: router.isSystemDefaultBrowser ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundColor(router.isSystemDefaultBrowser ? .green : .orange)
+                        Text("Default Web Browser:")
+                            .font(.subheadline)
+                        Text(router.isSystemDefaultBrowser ? "WinMan is Default" : (prefs.browserRouterEnabled ? "Not Set (Required for routing)" : "Browser Router Disabled"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        if !router.isSystemDefaultBrowser {
+                            Button("Open Settings") {
+                                router.openDefaultBrowserSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
                 
                 // Version & Reset
                 HStack {
-                    Text("WinMan v2.0.0")
+                    Text("WinMan v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.3")")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
@@ -463,14 +480,14 @@ public struct PreferencesView: View {
                                 Text("WinMan is not your default web browser")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
-                                Text("To route links clicked in other apps, select WinMan in System Settings.")
+                                Text("To route links clicked in other apps, select WinMan in System Settings → Desktop & Dock.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                             
                             Spacer()
                             
-                            Button("System Settings...") {
+                            Button("Open System Settings…") {
                                 router.openDefaultBrowserSettings()
                             }
                             .controlSize(.small)
@@ -531,6 +548,9 @@ public struct PreferencesView: View {
                                 .toggleStyle(.checkbox)
                             
                             Toggle("Remove tracking parameters (utm_*, fbclid, gclid, etc.)", isOn: $prefs.browserRouterStripTracking)
+                                .toggleStyle(.checkbox)
+                            
+                            Toggle("Check if WinMan is default browser on launch", isOn: $prefs.browserRouterCheckDefaultOnLaunch)
                                 .toggleStyle(.checkbox)
                         }
                         .padding(.leading, 18)
