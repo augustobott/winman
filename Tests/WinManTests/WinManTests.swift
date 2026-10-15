@@ -330,4 +330,66 @@ final class WinManTests: XCTestCase {
         XCTAssertEqual(prefs.menuBarIconStyle, .monochrome)
         XCTAssertFalse(prefs.launchAtLogin)
     }
+    
+    func testPreferencesTabAndRouterSelection() {
+        let prefs = PreferencesManager.shared
+        
+        // Test tab enum
+        XCTAssertEqual(PreferencesTab.allCases.count, 5)
+        XCTAssertEqual(PreferencesTab.global.rawValue, "Global")
+        XCTAssertEqual(PreferencesTab.browserRouter.rawValue, "Browser Router")
+        
+        prefs.selectedPreferencesTab = .browserRouter
+        XCTAssertEqual(prefs.selectedPreferencesTab, .browserRouter)
+        
+        prefs.selectedPreferencesTab = .global
+        XCTAssertEqual(prefs.selectedPreferencesTab, .global)
+        
+        // Test primary browser switching behavior
+        prefs.browserRouterDefaultBrowserBundleId = "com.apple.Safari"
+        prefs.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
+        
+        // Simulate selecting "prompt"
+        let promptItem = NSMenuItem(title: "Always Show Browser Picker", action: nil, keyEquivalent: "")
+        promptItem.representedObject = "prompt"
+        if let id = promptItem.representedObject as? String {
+            if id == "prompt" {
+                prefs.browserRouterBehavior = BrowserPickerBehavior.alwaysPrompt.rawValue
+            } else {
+                prefs.browserRouterDefaultBrowserBundleId = id
+                prefs.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
+            }
+        }
+        XCTAssertEqual(prefs.browserRouterBehavior, BrowserPickerBehavior.alwaysPrompt.rawValue)
+        
+        // Simulate selecting Chrome
+        let chromeItem = NSMenuItem(title: "Google Chrome", action: nil, keyEquivalent: "")
+        chromeItem.representedObject = "com.google.Chrome"
+        if let id = chromeItem.representedObject as? String {
+            if id == "prompt" {
+                prefs.browserRouterBehavior = BrowserPickerBehavior.alwaysPrompt.rawValue
+            } else {
+                prefs.browserRouterDefaultBrowserBundleId = id
+                prefs.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
+            }
+        }
+        XCTAssertEqual(prefs.browserRouterDefaultBrowserBundleId, "com.google.Chrome")
+        XCTAssertEqual(prefs.browserRouterBehavior, BrowserPickerBehavior.openDefault.rawValue)
+        
+        // Test InstalledBrowser menuIcon
+        let icon = NSImage(size: NSSize(width: 64, height: 64))
+        let browserWithIcon = InstalledBrowser(
+            bundleId: "com.test.Browser",
+            name: "Test Browser",
+            appURL: URL(fileURLWithPath: "/Applications/Test.app"),
+            icon: icon
+        )
+        let menuIcon = browserWithIcon.menuIcon
+        XCTAssertNotNil(menuIcon)
+        XCTAssertEqual(menuIcon?.size.width, 16)
+        XCTAssertEqual(menuIcon?.size.height, 16)
+        
+        // Test default browser property evaluation (does not crash)
+        let _ = BrowserRouterManager.shared.isSystemDefaultBrowser
+    }
 }

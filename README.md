@@ -13,7 +13,7 @@
 >
 > **WinMan** solves this by unifying all three essential capabilities into a single, native, high-performance macOS app.
 
-A native macOS super app combining **Easy-Move-Resize**, **Rectangle window snapping**, and **AltTab (Community & Pro Unlocked)** into a single unified utility.
+A native macOS super app combining **Easy-Move-Resize**, **Rectangle window snapping**, **AltTab (Community & Pro Unlocked)**, and a **Smart Browser Router** into a single unified utility.
 
 <p align="center">
   <img src="Sources/WinMan/Resources/AppIcon.png" width="160" alt="WinMan App Icon" />
@@ -93,17 +93,31 @@ Quickly snap and reposition windows with global keyboard shortcuts:
 
 ---
 
-### 4. Preferences & Menu Bar Integration
+### 4. Smart Browser Router
+Route web links to specific browsers automatically based on domain patterns, or choose on the fly with a keyboard-driven HUD:
+- **System Default Browser**: Registered as a recognized macOS web browser in **System Settings > Desktop & Dock > Default web browser**.
+- **Domain & Path Routing Rules**: Route specific URLs to chosen browsers (e.g., work apps to Chrome, personal links to Safari, meetings to a dedicated client).
+- **Interactive Browser Picker HUD**: Clean visual overlay showing installed browsers with app icons. Cycle with arrow keys or hit `1`–`9` for instant selection.
+- **⌥ Option-Click Override**: Hold `⌥ Option` when clicking any link to force the Browser Picker overlay to appear.
+- **Privacy Parameter Stripping**: Automatically removes tracking tokens (`utm_*`, `fbclid`, `gclid`, etc.) before opening URLs.
+- **Menu Bar Quick-Switching**: Switch your active default browser directly from the menu bar item, complete with app icons and checkmarks.
+- **Open URL from Clipboard**: Route URLs stored in your clipboard with a single click.
+
+---
+
+### 5. Preferences & Menu Bar Integration
 - **Menu Bar Icon**: Custom window-grid icon matching the app branding.
   - **Monochrome (macOS Tahoe)**: Clean grayscale template icon that dynamically adapts to macOS Light and Dark modes.
   - **Vibrant Color**: Full-color miniature icon.
   - Switch styles directly from the **Menu Bar Icon** submenu or within **Preferences (`⌘,`)**.
 - **Preferences (`⌘,`)**:
-  - Configure Easy-Move-Resize modifier keys.
-  - Configure Alt-Tab window switcher (thumbnails, live search, 1-9 direct jump).
-  - Select Menu Bar icon style.
+  - **Global**: Configure "Start at Login" and global app preferences.
+  - **Move & Resize**: Configure Easy-Move-Resize modifier keys and mouse button bindings.
+  - **Snapping**: Configure snap modifiers and hotkeys.
+  - **Alt-Tab**: Configure window switcher (thumbnails, live search, 1-9 direct jump, scope).
+  - **Browser Router**: Set primary browser, default action, URL routing rules, tracking cleaner, and verify default browser status.
 - Fast modifier preset switcher (`⌘ + ⌃`, `⌥ + ⌘`, `⌃ + ⌥`).
-- Toggle individual engines (Alt-Tab vs. Easy Move & Resize vs. Hotkeys).
+- Toggle individual engines (Alt-Tab vs. Easy Move & Resize vs. Hotkeys vs. Browser Router).
 - Execute any layout directly from the **Window Actions** menu.
 - Quick access to the Shortcuts & Gestures reference cheat sheet.
 
@@ -135,6 +149,27 @@ Window managers on macOS require Accessibility permissions to resize windows, sw
 1. When you first launch `WinMan`, macOS will prompt you to grant Accessibility access.
 2. If prompted, click **Open System Settings** (or navigate to **System Settings -> Privacy & Security -> Accessibility**).
 3. Toggle the switch next to **WinMan** (or your terminal application if running via `swift run`) to **ON**.
+
+---
+
+## Changelog
+
+### v2.0.1
+- **Menu Bar Quick Browser Switching**: Added a rich Browser Router submenu to the menu bar showing all detected browsers with their 16×16 app icons and checkmarks for instantaneous primary browser switching without opening Preferences.
+- **System Default Browser Integration**: Registered `CFBundleURLTypes` (`http`/`https`), `CFBundleDocumentTypes` (`public.html`/`public.xhtml`), and `NSUserActivityTypes` (`NSUserActivityTypeBrowsingWeb`) in `Info.plist`, allowing WinMan to be recognized by macOS LaunchServices and selected as the default web browser in *System Settings > Desktop & Dock*.
+- **Preferences & Status Improvements**:
+  - Added a dedicated "Global" tab in Preferences featuring the "Start at login" toggle.
+  - Added a Default Browser status banner in Preferences with a one-click button to open macOS System Settings.
+  - Implemented tab deep-linking (`PreferencesWindowController.show(tab:)`) from the menu bar directly to specific preference panes.
+- **LaunchServices Auto-Registration**: Updated `make install` to refresh LaunchServices automatically via `lsregister` upon installation.
+
+### v2.0.0
+- **Smart Browser Router**: Native link interceptor and router.
+  - Domain and path pattern routing rules.
+  - Browser Picker HUD with keyboard shortcuts and 1–9 quick numbers.
+  - Privacy tracking query parameter cleaner (`utm_*`, `fbclid`, `gclid`, etc.).
+  - Hold `⌥ Option` when clicking any link to trigger the picker on demand.
+  - Open URL from clipboard.
 
 ---
 

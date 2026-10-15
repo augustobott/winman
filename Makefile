@@ -42,4 +42,5 @@ install: app
 	@echo "Installing to /Applications..."
 	@rm -rf /Applications/$(APP_BUNDLE)
 	@cp -R $(APP_BUNDLE) /Applications/
+	@/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/$(APP_BUNDLE)
 	@echo "Installed $(APP_NAME) to /Applications!"

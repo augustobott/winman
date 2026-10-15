@@ -10,17 +10,22 @@ public struct PreferencesView: View {
     public init() {}
     
     public var body: some View {
-        TabView {
+        TabView(selection: $prefs.selectedPreferencesTab) {
             globalTab
                 .tabItem { Text("Global") }
+                .tag(PreferencesTab.global)
             moveResizeTab
                 .tabItem { Text("Move & Resize") }
+                .tag(PreferencesTab.moveResize)
             snapTab
                 .tabItem { Text("Snapping") }
+                .tag(PreferencesTab.snap)
             altTab
                 .tabItem { Text("Alt-Tab") }
+                .tag(PreferencesTab.altTab)
             browserRouterTab
                 .tabItem { Text("Browser Router") }
+                .tag(PreferencesTab.browserRouter)
         }
         .padding()
         .frame(width: 580, height: 620)
@@ -433,6 +438,49 @@ public struct PreferencesView: View {
                 
                 Divider()
                 
+                // System Default Browser Status Banner
+                if prefs.browserRouterEnabled {
+                    HStack(spacing: 12) {
+                        if router.isSystemDefaultBrowser {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("WinMan is your default web browser")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("System links will be routed according to your rules and preferences.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.orange)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("WinMan is not your default web browser")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("To route links clicked in other apps, select WinMan in System Settings.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button("System Settings...") {
+                                router.openDefaultBrowserSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                }
+                
                 // Main toggle & General Settings
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Browser Router", isOn: $prefs.browserRouterEnabled)
@@ -675,7 +723,10 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         }
     }
 
-    public func show() {
+    public func show(tab: PreferencesTab? = nil) {
+        if let tab = tab {
+            PreferencesManager.shared.selectedPreferencesTab = tab
+        }
         guard let window = self.window, let contentView = window.contentView else { return }
         window.setContentSize(contentView.fittingSize)
         NSApp.activate(ignoringOtherApps: true)
