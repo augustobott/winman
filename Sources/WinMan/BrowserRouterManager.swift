@@ -1,5 +1,7 @@
 import Foundation
 import AppKit
+import ApplicationServices
+import CoreServices
 
 @MainActor
 public final class BrowserRouterManager: ObservableObject {
@@ -15,6 +17,23 @@ public final class BrowserRouterManager: ObservableObject {
     
     private init() {
         refreshInstalledBrowsers()
+        
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleWorkspaceActivation),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWorkspaceActivation),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleWorkspaceActivation() {
+        objectWillChange.send()
     }
     
     public func refreshInstalledBrowsers() {
@@ -166,16 +185,73 @@ public final class BrowserRouterManager: ObservableObject {
     public var isSystemDefaultBrowser: Bool {
         guard let testURL = URL(string: "https://apple.com") else { return false }
         guard let defaultAppURL = NSWorkspace.shared.urlForApplication(toOpen: testURL) else { return false }
-        guard let bundle = Bundle(url: defaultAppURL) else { return false }
         let myBundleId = Bundle.main.bundleIdentifier ?? "com.winman.WinMan"
-        return bundle.bundleIdentifier == myBundleId
+        if let bundle = Bundle(url: defaultAppURL), let bundleId = bundle.bundleIdentifier {
+            return bundleId.caseInsensitiveCompare(myBundleId) == .orderedSame
+        }
+        let appName = defaultAppURL.deletingPathExtension().lastPathComponent
+        return appName.caseInsensitiveCompare("WinMan") == .orderedSame
+    }
+    
+    public func requestSetDefaultBrowser() {
+        let myBundleId = (Bundle.main.bundleIdentifier ?? "com.winman.WinMan") as CFString
+        LSSetDefaultHandlerForURLScheme("http" as CFString, myBundleId)
+        LSSetDefaultHandlerForURLScheme("https" as CFString, myBundleId)
+        LSSetDefaultRoleHandlerForContentType("public.html" as CFString, .all, myBundleId)
     }
     
     public func openDefaultBrowserSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        } else {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+        requestSetDefaultBrowser()
+        
+        if #available(macOS 13.0, *) {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension"),
+               NSWorkspace.shared.open(url) {
+                return
+            }
         }
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.general"),
+           NSWorkspace.shared.open(url) {
+            return
+        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+    }
+    
+    public func promptDefaultBrowserWarning(force: Bool = false) {
+        guard !isSystemDefaultBrowser else { return }
+        
+        let prefs = PreferencesManager.shared
+        if !force && (!prefs.browserRouterEnabled || !prefs.browserRouterCheckDefaultOnLaunch) {
+            return
+        }
+        
+        NSApp.activate(ignoringOtherApps: true)
+        
+        let alert = NSAlert()
+        alert.messageText = "WinMan is Not Your Default Web Browser"
+        alert.informativeText = """
+            WinMan needs to be set as your default web browser to intercept and route links clicked in other apps (such as Mail, Messages, and Slack) according to your rules.
+
+            In System Settings → Desktop & Dock, scroll to "Default web browser" and select WinMan.
+            """
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings…")
+        alert.addButton(withTitle: "Not Now")
+        
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Do not check on startup"
+        
+        let response = alert.runModal()
+        
+        if alert.suppressionButton?.state == .on {
+            prefs.browserRouterCheckDefaultOnLaunch = false
+        }
+        
+        if response == .alertFirstButtonReturn {
+            openDefaultBrowserSettings()
+        }
+    }
+    
+    public func promptDefaultBrowserWarningIfNeeded() {
+        promptDefaultBrowserWarning(force: false)
     }
 }

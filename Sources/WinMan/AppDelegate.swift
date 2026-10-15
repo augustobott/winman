@@ -121,8 +121,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             AltTabEngine.shared.isEnabled = enabled
         }.store(in: &cancellables)
         
-        prefs.$browserRouterEnabled.sink { [weak self] _ in
+        prefs.$browserRouterEnabled.dropFirst().sink { [weak self] enabled in
             self?.rebuildMenu()
+            if enabled {
+                BrowserRouterManager.shared.promptDefaultBrowserWarningIfNeeded()
+            }
         }.store(in: &cancellables)
         
         prefs.$browserRouterDefaultBrowserBundleId.sink { [weak self] _ in
@@ -139,6 +142,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         if prefs.altTabShowThumbnails && !ScreenRecordingManager.shared.isGranted {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 ScreenRecordingManager.shared.requestIfNeeded()
+            }
+        }
+        
+        // Check if WinMan is default browser, deferred so it does not collide with permission prompts
+        if prefs.browserRouterEnabled && prefs.browserRouterCheckDefaultOnLaunch {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                BrowserRouterManager.shared.promptDefaultBrowserWarningIfNeeded()
             }
         }
     }
@@ -222,6 +232,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             }
         }
         
+        // Status — Default Browser (shown when Browser Router is enabled but WinMan is not default)
+        if PreferencesManager.shared.browserRouterEnabled && !BrowserRouterManager.shared.isSystemDefaultBrowser {
+            let defaultBrowserItem = NSMenuItem(
+                title: "⚠️ WinMan is Not Default Browser...",
+                action: #selector(promptDefaultBrowser),
+                keyEquivalent: ""
+            )
+            defaultBrowserItem.target = self
+            menu.addItem(defaultBrowserItem)
+        }
+        
         menu.addItem(NSMenuItem.separator())
         
         // Features toggles
@@ -299,6 +320,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         browserItem.state = prefs.browserRouterEnabled ? .on : .off
         
         let browserRouterMenu = NSMenu()
+        
+        // 0. Default browser warning if not set
+        if !BrowserRouterManager.shared.isSystemDefaultBrowser {
+            let warnItem = NSMenuItem(
+                title: "⚠️ Not Default Browser (Click to Set)...",
+                action: #selector(promptDefaultBrowser),
+                keyEquivalent: ""
+            )
+            warnItem.target = self
+            browserRouterMenu.addItem(warnItem)
+            browserRouterMenu.addItem(NSMenuItem.separator())
+        }
         
         // 1. Installed Browsers
         let installedBrowsers = BrowserRouterManager.shared.installedBrowsers
@@ -462,9 +495,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         PreferencesManager.shared.altTabEnabled.toggle()
     }
     
+    @objc private func promptDefaultBrowser() {
+        BrowserRouterManager.shared.promptDefaultBrowserWarning(force: true)
+    }
+    
     @objc private func toggleBrowserRouter() {
-        PreferencesManager.shared.browserRouterEnabled.toggle()
+        let newValue = !PreferencesManager.shared.browserRouterEnabled
+        PreferencesManager.shared.browserRouterEnabled = newValue
         rebuildMenu()
+        if newValue {
+            BrowserRouterManager.shared.promptDefaultBrowserWarningIfNeeded()
+        }
     }
     
     @objc private func openURLFromClipboard() {

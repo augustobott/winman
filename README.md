@@ -154,6 +154,15 @@ Window managers on macOS require Accessibility permissions to resize windows, sw
 
 ## Changelog
 
+### v2.0.3
+- **Default Browser Warning & Direct System Settings Integration**:
+  - Automatically checks if WinMan is set as the macOS default web browser on launch and when Browser Router is toggled on.
+  - Displays a warning dialog directing the user to *System Settings → Desktop & Dock → Default web browser* with a one-click button to open the settings pane directly.
+  - Invokes LaunchServices default handler registration (`LSSetDefaultHandlerForURLScheme` and `LSSetDefaultRoleHandlerForContentType`) to prompt or set default browser automatically.
+  - Added warning indicators (`⚠️ WinMan is Not Default Browser...`) in both the menu bar status section and the Browser Router submenu.
+  - Added a Default Web Browser status row to the Global Settings tab in Preferences.
+  - Added a "Check if WinMan is default browser on launch" toggle with suppression support ("Do not check on startup").
+
 ### v2.0.2
 - **Transparent Menu Bar Icons**:
   - Eliminated the opaque white/gray background on menu bar icons in both Monochrome and Vibrant Color styles.

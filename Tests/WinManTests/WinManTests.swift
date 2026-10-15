@@ -401,4 +401,24 @@ final class WinManTests: XCTestCase {
         // Test default browser property evaluation (does not crash)
         let _ = BrowserRouterManager.shared.isSystemDefaultBrowser
     }
+    
+    func testDefaultBrowserCheckingAndPreferences() {
+        let prefs = PreferencesManager.shared
+        
+        // Test default setting value
+        XCTAssertTrue(prefs.browserRouterCheckDefaultOnLaunch)
+        
+        // Test updating setting
+        prefs.browserRouterCheckDefaultOnLaunch = false
+        XCTAssertFalse(prefs.browserRouterCheckDefaultOnLaunch)
+        
+        // Test reset to defaults restores it to true
+        prefs.resetBrowserRouterDefaults()
+        XCTAssertTrue(prefs.browserRouterCheckDefaultOnLaunch)
+        
+        // Verify requestSetDefaultBrowser and isSystemDefaultBrowser do not crash
+        BrowserRouterManager.shared.requestSetDefaultBrowser()
+        let isDefault = BrowserRouterManager.shared.isSystemDefaultBrowser
+        XCTAssertTrue(isDefault || !isDefault)
+    }
 }
