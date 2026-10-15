@@ -125,6 +125,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             self?.rebuildMenu()
         }.store(in: &cancellables)
         
+        prefs.$browserRouterDefaultBrowserBundleId.sink { [weak self] _ in
+            self?.rebuildMenu()
+        }.store(in: &cancellables)
+        
+        prefs.$browserRouterBehavior.sink { [weak self] _ in
+            self?.rebuildMenu()
+        }.store(in: &cancellables)
+        
         // Request Screen Recording permission here — after Accessibility is confirmed granted —
         // so both system prompts never appear simultaneously. Defer by 1s so any Accessibility
         // prompt (or its TCC-triggered relaunch) has fully settled before the next dialog fires.
@@ -168,6 +176,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
     
     public func menuWillOpen(_ menu: NSMenu) {
+        BrowserRouterManager.shared.refreshInstalledBrowsers()
         rebuildMenu()
     }
     
@@ -270,22 +279,97 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         altTabItem.state = prefs.altTabEnabled ? .on : .off
         menu.addItem(altTabItem)
         
-        let browserItem = NSMenuItem(
-            title: "Browser Router",
+        // Browser Router Submenu
+        let isAlwaysPrompt = (prefs.browserRouterBehavior == BrowserPickerBehavior.alwaysPrompt.rawValue)
+        let activeBrowserName: String
+        if isAlwaysPrompt {
+            activeBrowserName = "Picker"
+        } else if let b = BrowserRouterManager.shared.installedBrowsers.first(where: { $0.bundleId == prefs.browserRouterDefaultBrowserBundleId }) {
+            activeBrowserName = b.name
+        } else if let first = BrowserRouterManager.shared.installedBrowsers.first {
+            activeBrowserName = first.name
+        } else {
+            activeBrowserName = "Safari"
+        }
+        
+        let browserItemTitle = prefs.browserRouterEnabled
+            ? "Browser Router (\(activeBrowserName))"
+            : "Browser Router (Off)"
+        let browserItem = NSMenuItem(title: browserItemTitle, action: nil, keyEquivalent: "")
+        browserItem.state = prefs.browserRouterEnabled ? .on : .off
+        
+        let browserRouterMenu = NSMenu()
+        
+        // 1. Installed Browsers
+        let installedBrowsers = BrowserRouterManager.shared.installedBrowsers
+        if installedBrowsers.isEmpty {
+            let emptyItem = NSMenuItem(title: "No Browsers Detected", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            browserRouterMenu.addItem(emptyItem)
+        } else {
+            for browser in installedBrowsers {
+                let bItem = NSMenuItem(
+                    title: browser.name,
+                    action: #selector(selectPrimaryBrowser(_:)),
+                    keyEquivalent: ""
+                )
+                bItem.target = self
+                bItem.representedObject = browser.bundleId
+                bItem.image = browser.menuIcon
+                bItem.state = (!isAlwaysPrompt && prefs.browserRouterDefaultBrowserBundleId == browser.bundleId) ? .on : .off
+                browserRouterMenu.addItem(bItem)
+            }
+        }
+        
+        // 2. Always Show Browser Picker
+        let pickerItem = NSMenuItem(
+            title: "Always Show Browser Picker",
+            action: #selector(selectPrimaryBrowser(_:)),
+            keyEquivalent: ""
+        )
+        pickerItem.target = self
+        pickerItem.representedObject = "prompt"
+        if let icon = NSImage(systemSymbolName: "questionmark.app", accessibilityDescription: "Browser Picker")?.copy() as? NSImage {
+            icon.size = NSSize(width: 16, height: 16)
+            pickerItem.image = icon
+        }
+        pickerItem.state = isAlwaysPrompt ? .on : .off
+        browserRouterMenu.addItem(pickerItem)
+        
+        browserRouterMenu.addItem(NSMenuItem.separator())
+        
+        // 3. Enable Browser Router Toggle
+        let enableItem = NSMenuItem(
+            title: "Enable Browser Router",
             action: #selector(toggleBrowserRouter),
             keyEquivalent: ""
         )
-        browserItem.target = self
-        browserItem.state = prefs.browserRouterEnabled ? .on : .off
-        menu.addItem(browserItem)
+        enableItem.target = self
+        enableItem.state = prefs.browserRouterEnabled ? .on : .off
+        browserRouterMenu.addItem(enableItem)
         
-        let clipboardURLItem = NSMenuItem(
+        // 4. Open URL from Clipboard
+        let clipboardItem = NSMenuItem(
             title: "Open URL from Clipboard...",
             action: #selector(openURLFromClipboard),
             keyEquivalent: ""
         )
-        clipboardURLItem.target = self
-        menu.addItem(clipboardURLItem)
+        clipboardItem.target = self
+        browserRouterMenu.addItem(clipboardItem)
+        
+        browserRouterMenu.addItem(NSMenuItem.separator())
+        
+        // 5. Configure Rules & Settings...
+        let configRulesItem = NSMenuItem(
+            title: "Configure Rules & Settings...",
+            action: #selector(openBrowserRouterPreferences),
+            keyEquivalent: ""
+        )
+        configRulesItem.target = self
+        browserRouterMenu.addItem(configRulesItem)
+        
+        browserItem.submenu = browserRouterMenu
+        menu.addItem(browserItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -393,6 +477,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         }
     }
     
+    public func application(_ application: NSApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([NSUserActivityRestoring]) -> Void) -> Bool {
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+            BrowserRouterManager.shared.handle(url: url)
+            return true
+        }
+        return false
+    }
+    
     @objc private func performMenuAction(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? WindowAction else { return }
         HotkeySnapEngine.shared.execute(action: action)
@@ -400,6 +492,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     
     @objc private func openPreferences() {
         PreferencesWindowController.shared.show()
+    }
+    
+    @objc private func openBrowserRouterPreferences() {
+        PreferencesWindowController.shared.show(tab: .browserRouter)
+    }
+    
+    @objc private func selectPrimaryBrowser(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        let prefs = PreferencesManager.shared
+        if id == "prompt" {
+            prefs.browserRouterBehavior = BrowserPickerBehavior.alwaysPrompt.rawValue
+        } else {
+            prefs.browserRouterDefaultBrowserBundleId = id
+            prefs.browserRouterBehavior = BrowserPickerBehavior.openDefault.rawValue
+        }
+        rebuildMenu()
     }
     
     @objc private func setPresetCmdCtrl() {

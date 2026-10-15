@@ -162,4 +162,20 @@ public final class BrowserRouterManager: ObservableObject {
         
         handle(url: url)
     }
+    
+    public var isSystemDefaultBrowser: Bool {
+        guard let testURL = URL(string: "https://apple.com") else { return false }
+        guard let defaultAppURL = NSWorkspace.shared.urlForApplication(toOpen: testURL) else { return false }
+        guard let bundle = Bundle(url: defaultAppURL) else { return false }
+        let myBundleId = Bundle.main.bundleIdentifier ?? "com.winman.WinMan"
+        return bundle.bundleIdentifier == myBundleId
+    }
+    
+    public func openDefaultBrowserSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+        }
+    }
 }

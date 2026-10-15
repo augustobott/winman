@@ -3,10 +3,19 @@ import CoreGraphics
 import Combine
 import ServiceManagement
 
+public enum PreferencesTab: String, CaseIterable, Hashable, Sendable {
+    case global = "Global"
+    case moveResize = "Move & Resize"
+    case snap = "Snapping"
+    case altTab = "Alt-Tab"
+    case browserRouter = "Browser Router"
+}
+
 @MainActor
 public final class PreferencesManager: ObservableObject {
     public static let shared = PreferencesManager()
     
+    @Published public var selectedPreferencesTab: PreferencesTab = .global
     @Published public var launchAtLogin: Bool = false
     
     // Dedicated persistent UserDefaults
