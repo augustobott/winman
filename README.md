@@ -154,6 +154,12 @@ Window managers on macOS require Accessibility permissions to resize windows, sw
 
 ## Changelog
 
+### v2.0.2
+- **Transparent Menu Bar Icons**:
+  - Eliminated the opaque white/gray background on menu bar icons in both Monochrome and Vibrant Color styles.
+  - Redesigned `Monochrome (macOS Tahoe)` icon with clean window frame outlines and transparent window panes, seamlessly blending into light and dark macOS menu bars.
+  - Re-exported and programmatically backed `Vibrant Color` menu bar icons with 100% transparent alpha channels (`hasAlpha: true`), completely removing the white square border.
+
 ### v2.0.1
 - **Menu Bar Quick Browser Switching**: Added a rich Browser Router submenu to the menu bar showing all detected browsers with their 16×16 app icons and checkmarks for instantaneous primary browser switching without opening Preferences.
 - **System Default Browser Integration**: Registered `CFBundleURLTypes` (`http`/`https`), `CFBundleDocumentTypes` (`public.html`/`public.xhtml`), and `NSUserActivityTypes` (`NSUserActivityTypeBrowsingWeb`) in `Info.plist`, allowing WinMan to be recognized by macOS LaunchServices and selected as the default web browser in *System Settings > Desktop & Dock*.

@@ -43,15 +43,46 @@ public final class MenuBarIconManager {
             return img
         }
         
-        // Fallback: load AppIcon
-        if let appIcon = NSApplication.shared.applicationIconImage,
-           let img = appIcon.copy() as? NSImage {
-            img.size = NSSize(width: 18, height: 18)
-            img.isTemplate = false
-            return img
+        return programmaticColorIcon()
+    }
+    
+    public func programmaticColorIcon() -> NSImage {
+        let size: CGFloat = 18
+        let imgSize = NSSize(width: size, height: size)
+        let image = NSImage(size: imgSize, flipped: false) { rect in
+            let margin: CGFloat = size * 0.08
+            let iconSize: CGFloat = size - (margin * 2.0)
+            let iconRect = NSRect(x: margin, y: margin, width: iconSize, height: iconSize)
+            let squirclePath = NSBezierPath(roundedRect: iconRect, xRadius: iconSize * 0.25, yRadius: iconSize * 0.25)
+            
+            // Gradient: cyan to purple
+            let startColor = NSColor(red: 0.05, green: 0.78, blue: 0.95, alpha: 1.0)
+            let endColor = NSColor(red: 0.58, green: 0.18, blue: 0.62, alpha: 1.0)
+            if let gradient = NSGradient(starting: startColor, ending: endColor) {
+                gradient.draw(in: squirclePath, angle: -45)
+            }
+            
+            // 2 cols x 3 rows white window tiles
+            let colW = iconSize * 0.32
+            let rowH = iconSize * 0.18
+            let col1X = iconRect.minX + iconSize * 0.12
+            let col2X = iconRect.minX + iconSize * 0.56
+            let yOffsets: [CGFloat] = [0.12, 0.41, 0.70]
+            
+            NSColor.white.withAlphaComponent(0.92).setFill()
+            for yOff in yOffsets {
+                let y = iconRect.minY + iconSize * yOff
+                let r1 = NSRect(x: col1X, y: y, width: colW, height: rowH)
+                let r2 = NSRect(x: col2X, y: y, width: colW, height: rowH)
+                let cr = min(colW, rowH) * 0.28
+                NSBezierPath(roundedRect: r1, xRadius: cr, yRadius: cr).fill()
+                NSBezierPath(roundedRect: r2, xRadius: cr, yRadius: cr).fill()
+            }
+            
+            return true
         }
-        
-        return monochromeTemplateIcon()
+        image.isTemplate = false
+        return image
     }
     
     public func monochromeTemplateIcon() -> NSImage {
@@ -59,30 +90,32 @@ public final class MenuBarIconManager {
         let image = NSImage(size: size, flipped: false) { rect in
             let strokeColor = NSColor.black
             
-            // Outer squircle container
-            let outerRect = NSRect(x: 1.0, y: 1.0, width: 16.0, height: 16.0)
-            let outerPath = NSBezierPath(roundedRect: outerRect, xRadius: 4.2, yRadius: 4.2)
-            outerPath.lineWidth = 1.3
+            // Outer window outline with transparent interior
+            let winRect = NSRect(x: 1.5, y: 1.5, width: 15.0, height: 15.0)
+            let path = NSBezierPath(roundedRect: winRect, xRadius: 2.8, yRadius: 2.8)
+            path.lineWidth = 1.3
             strokeColor.setStroke()
-            outerPath.stroke()
+            path.stroke()
             
-            // 2 columns x 3 rows grid of window tiles matching the app icon
-            let colWidth: CGFloat = 5.3
-            let rowHeight: CGFloat = 3.0
-            let col1X: CGFloat = 2.8
-            let col2X: CGFloat = 9.9
-            let rowY: [CGFloat] = [2.8, 7.5, 12.2]
+            // Vertical divider (halves)
+            let vLine = NSBezierPath()
+            vLine.move(to: NSPoint(x: 9.0, y: 1.5))
+            vLine.line(to: NSPoint(x: 9.0, y: 16.5))
+            vLine.lineWidth = 1.3
+            vLine.stroke()
             
-            strokeColor.setFill()
-            for y in rowY {
-                let rect1 = NSRect(x: col1X, y: y, width: colWidth, height: rowHeight)
-                let tile1 = NSBezierPath(roundedRect: rect1, xRadius: 0.9, yRadius: 0.9)
-                tile1.fill()
-                
-                let rect2 = NSRect(x: col2X, y: y, width: colWidth, height: rowHeight)
-                let tile2 = NSBezierPath(roundedRect: rect2, xRadius: 0.9, yRadius: 0.9)
-                tile2.fill()
-            }
+            // 2 Horizontal dividers (thirds)
+            let hLine1 = NSBezierPath()
+            hLine1.move(to: NSPoint(x: 1.5, y: 6.5))
+            hLine1.line(to: NSPoint(x: 16.5, y: 6.5))
+            hLine1.lineWidth = 1.3
+            hLine1.stroke()
+            
+            let hLine2 = NSBezierPath()
+            hLine2.move(to: NSPoint(x: 1.5, y: 11.5))
+            hLine2.line(to: NSPoint(x: 16.5, y: 11.5))
+            hLine2.lineWidth = 1.3
+            hLine2.stroke()
             
             return true
         }

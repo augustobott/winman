@@ -76,9 +76,18 @@ final class WinManTests: XCTestCase {
         let monoIcon = manager.icon(for: .monochrome)
         XCTAssertNotNil(monoIcon)
         XCTAssertTrue(monoIcon.isTemplate)
+        if let monoRep = NSBitmapImageRep(data: monoIcon.tiffRepresentation!) {
+            XCTAssertTrue(monoRep.hasAlpha)
+            XCTAssertEqual(monoRep.colorAt(x: 0, y: 0)?.alphaComponent, 0.0)
+        }
         
         let colorIcon = manager.icon(for: .color)
         XCTAssertNotNil(colorIcon)
+        XCTAssertFalse(colorIcon.isTemplate)
+        if let colorRep = NSBitmapImageRep(data: colorIcon.tiffRepresentation!) {
+            XCTAssertTrue(colorRep.hasAlpha)
+            XCTAssertEqual(colorRep.colorAt(x: 0, y: 0)?.alphaComponent, 0.0)
+        }
     }
     
     func testSearchFiltering() {
