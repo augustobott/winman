@@ -33,6 +33,7 @@ public final class SwitcherOverlayController: ObservableObject {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.isMovableByWindowBackground = false
+        p.alphaValue = 0
         
         let hostingView = NSHostingView(rootView: SwitcherOverlayView(controller: self))
         p.contentView = hostingView
@@ -40,6 +41,10 @@ public final class SwitcherOverlayController: ObservableObject {
     }
     
     public func present(windows: [SwitcherWindowInfo], selectedIndex: Int = 0, showNumbers: Bool = true) {
+        guard !windows.isEmpty else {
+            dismiss()
+            return
+        }
         self.windows = windows
         var initialThumbs: [CGWindowID: NSImage] = [:]
         for win in windows {
@@ -102,11 +107,13 @@ public final class SwitcherOverlayController: ObservableObject {
         let originX = screenFrame.origin.x + (screenFrame.width - targetWidth) / 2
         let originY = screenFrame.origin.y + (screenFrame.height - targetHeight) / 2
 
+        p.alphaValue = 1.0
         p.setFrame(NSRect(x: originX, y: originY, width: targetWidth, height: targetHeight), display: true)
         p.orderFrontRegardless()
     }
 
     public func dismiss() {
+        panel?.alphaValue = 0
         panel?.orderOut(nil)
         self.windows = []
         self.thumbnails = [:]

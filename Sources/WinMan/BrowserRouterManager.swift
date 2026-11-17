@@ -9,6 +9,170 @@ public final class BrowserRouterManager: ObservableObject {
     
     @Published public private(set) var installedBrowsers: [InstalledBrowser] = []
     
+    /// Comprehensive list of bundle identifiers for known web browsers on macOS.
+    public static let knownBrowserBundleIds: Set<String> = [
+        "com.apple.Safari",
+        "com.apple.SafariTechnologyPreview",
+        "com.google.Chrome",
+        "com.google.Chrome.canary",
+        "com.google.Chrome.beta",
+        "com.google.Chrome.dev",
+        "org.mozilla.firefox",
+        "org.mozilla.firefoxdeveloperedition",
+        "org.mozilla.nightly",
+        "org.mozilla.palemoon",
+        "org.mozilla.seamonkey",
+        "company.thebrowser.Browser", // Arc
+        "com.brave.Browser",
+        "com.brave.Browser.beta",
+        "com.brave.Browser.nightly",
+        "com.microsoft.edgemac",
+        "com.microsoft.edgemac.Canary",
+        "com.microsoft.edgemac.Dev",
+        "com.microsoft.edgemac.Beta",
+        "com.operasoftware.Opera",
+        "com.operasoftware.OperaGX",
+        "com.operasoftware.OperaNext",
+        "com.operasoftware.OperaDeveloper",
+        "com.operasoftware.OperaCrypto",
+        "app.zen-browser.zen",
+        "com.vivaldi.Vivaldi",
+        "com.kagi.kagimacOS", // Orion
+        "com.duckduckgo.macos.browser",
+        "org.torproject.torbrowser",
+        "org.chromium.Chromium",
+        "com.sigmaos.sigmaos.macos", // SigmaOS
+        "net.waterfox.waterfox",
+        "io.gitlab.librewolf-community.librewolf",
+        "net.mullvad.mullvad-browser",
+        "com.pushplaylabs.sidekick",
+        "com.ghostery.browser",
+        "com.electron.min",
+        "org.ladybird.Ladybird",
+        "com.tempest.browser",
+        "io.island.island",
+        "ru.yandex.desktop.yandex-browser",
+        "com.maxthon.mac.Maxthon",
+        "com.alohabrowser.alohabrowser",
+        "com.bookry.wavebox",
+        "jp.co.ablaze.floorp",
+        "com.mighty.app",
+        "net.ungoogled-software.ungoogled-chromium",
+        "com.colibri.browser",
+        "com.atlas.nyxt",
+        "org.qutebrowser.qutebrowser"
+    ]
+    
+    private static let knownBrowserPrefixes: [String] = [
+        "com.apple.Safari",
+        "com.google.Chrome",
+        "org.mozilla.firefox",
+        "company.thebrowser.Browser",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "com.operasoftware.Opera",
+        "org.torproject.torbrowser",
+        "app.zen-browser.zen",
+        "com.vivaldi.Vivaldi",
+        "com.kagi.kagimacOS",
+        "com.duckduckgo.macos.browser",
+        "org.chromium.Chromium"
+    ]
+    
+    /// Applications and utilities known to register http/https schemes that are NOT web browsers.
+    public static let blockedAppBundleIdPrefixes: [String] = [
+        "com.winman.WinMan",
+        "com.sindresorhus.Velja",
+        "com.browserosaurus",
+        "com.choosyosx.Choosy",
+        "net.kylewm.finicky",
+        "net.sprout24.finicky",
+        "com.frodev.Bumpr",
+        "com.loshadki.OpenIn",
+        "com.github.switchbar",
+        "com.googlecode.iterm2",
+        "com.cmuxterm",
+        "com.apple.Terminal",
+        "net.kovidgoyal.kitty",
+        "org.alacritty",
+        "dev.warp.Warp",
+        "co.zeit.hyper",
+        "com.github.wez.wezterm",
+        "com.mitchellh.ghostty",
+        "com.mediahuman.",
+        "com.charliemonroe.Downie",
+        "com.openmedia.",
+        "com.4kdownload.",
+        "org.jdownloader.",
+        "org.videolan.vlc",
+        "com.colliderli.iina",
+        "io.mpv",
+        "org.m0k.transmission",
+        "org.qbittorrent.",
+        "com.tinyspeck.slackmacgap",
+        "com.hnc.Discord",
+        "ru.keepcoder.Telegram",
+        "com.tdesktop.Telegram",
+        "net.whatsapp.WhatsApp",
+        "com.postmanlabs.mac",
+        "com.insomnia.app",
+        "com.apple.dt.Xcode",
+        "com.microsoft.VSCode",
+        "com.apple.TextEdit",
+        "com.apple.Notes",
+        "com.sublimetext."
+    ]
+    
+    private static let blockedKeywords: [String] = [
+        "terminal", "iterm", "cmux", "kitty", "alacritty", "warp", "ghostty", "wezterm",
+        "youtube to mp3", "downloader", "converter", "torrent"
+    ]
+    
+    public static func isActualBrowser(bundle: Bundle, appURL: URL) -> Bool {
+        guard let bundleId = bundle.bundleIdentifier else { return false }
+        let name = bundle.infoDictionary?["CFBundleDisplayName"] as? String
+            ?? bundle.infoDictionary?["CFBundleName"] as? String
+            ?? appURL.deletingPathExtension().lastPathComponent
+        return isActualBrowser(bundleId: bundleId, appName: name)
+    }
+    
+    public static func isActualBrowser(bundleId: String, appName: String) -> Bool {
+        let lowerBid = bundleId.lowercased()
+        let lowerName = appName.lowercased()
+        
+        // 1. Check against blocked bundle ID prefixes and identifiers
+        for blocked in blockedAppBundleIdPrefixes {
+            if lowerBid == blocked.lowercased() || lowerBid.hasPrefix(blocked.lowercased()) {
+                return false
+            }
+        }
+        
+        // 2. Check against blocked keywords in name or bundle identifier
+        for keyword in blockedKeywords {
+            if lowerName.contains(keyword) || lowerBid.contains(keyword) {
+                return false
+            }
+        }
+        
+        // 3. Match against known browser bundle IDs or prefixes
+        if knownBrowserBundleIds.contains(bundleId) {
+            return true
+        }
+        for prefix in knownBrowserPrefixes {
+            if bundleId.hasPrefix(prefix) {
+                return true
+            }
+        }
+        
+        // 4. Heuristic: App name or bundle identifier explicitly identifies as a browser / navigator
+        if lowerName.contains("browser") || lowerBid.contains("browser") ||
+           lowerName.contains("navigator") || lowerBid.contains("navigator") {
+            return true
+        }
+        
+        return false
+    }
+    
     private let trackingQueryKeys: Set<String> = [
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "utm_name",
         "fbclid", "gclid", "gclsrc", "dclid", "msclkid", "mc_eid", "igshid", "twclid", "si",
@@ -55,7 +219,8 @@ public final class BrowserRouterManager: ObservableObject {
             "app.zen-browser.zen",
             "com.vivaldi.Vivaldi",
             "com.kagi.kagimacOS", // Orion
-            "com.duckduckgo.macos.browser"
+            "com.duckduckgo.macos.browser",
+            "org.torproject.torbrowser"
         ]
         
         for url in appURLs {
@@ -63,6 +228,10 @@ public final class BrowserRouterManager: ObservableObject {
                   let bundleId = bundle.bundleIdentifier,
                   bundleId != myBundleId,
                   !seenBundleIds.contains(bundleId) else {
+                continue
+            }
+            
+            guard BrowserRouterManager.isActualBrowser(bundle: bundle, appURL: url) else {
                 continue
             }
             
@@ -87,6 +256,15 @@ public final class BrowserRouterManager: ObservableObject {
         }
         
         self.installedBrowsers = list
+        
+        // Fall back default browser preference if previously set to an invalid app
+        let prefs = PreferencesManager.shared
+        if prefs.browserRouterDefaultBrowserBundleId != "prompt" {
+            let isCurrentValid = list.contains(where: { $0.bundleId == prefs.browserRouterDefaultBrowserBundleId })
+            if !isCurrentValid, let firstValid = list.first(where: { $0.bundleId == "com.apple.Safari" }) ?? list.first {
+                prefs.browserRouterDefaultBrowserBundleId = firstValid.bundleId
+            }
+        }
     }
     
     public func stripTrackingParameters(from url: URL) -> URL {

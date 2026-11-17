@@ -421,4 +421,74 @@ final class WinManTests: XCTestCase {
         let isDefault = BrowserRouterManager.shared.isSystemDefaultBrowser
         XCTAssertTrue(isDefault || !isDefault)
     }
+    
+    func testActualBrowserFiltering() {
+        // Valid web browsers
+        let validBrowsers: [(bundleId: String, name: String)] = [
+            ("com.apple.Safari", "Safari"),
+            ("com.apple.SafariTechnologyPreview", "Safari Technology Preview"),
+            ("com.google.Chrome", "Google Chrome"),
+            ("com.google.Chrome.canary", "Google Chrome Canary"),
+            ("org.mozilla.firefox", "Firefox"),
+            ("org.torproject.torbrowser", "Tor Browser"),
+            ("company.thebrowser.Browser", "Arc"),
+            ("com.brave.Browser", "Brave Browser"),
+            ("com.microsoft.edgemac", "Microsoft Edge"),
+            ("com.operasoftware.Opera", "Opera"),
+            ("app.zen-browser.zen", "Zen Browser"),
+            ("com.vivaldi.Vivaldi", "Vivaldi"),
+            ("com.kagi.kagimacOS", "Orion"),
+            ("com.duckduckgo.macos.browser", "DuckDuckGo")
+        ]
+        
+        for browser in validBrowsers {
+            XCTAssertTrue(
+                BrowserRouterManager.isActualBrowser(bundleId: browser.bundleId, appName: browser.name),
+                "\(browser.name) (\(browser.bundleId)) should be recognized as a valid browser"
+            )
+        }
+        
+        // Non-browsers / tools that should be excluded
+        let nonBrowsers: [(bundleId: String, name: String)] = [
+            ("com.googlecode.iterm2", "iTerm2"),
+            ("com.cmuxterm.app", "cmux"),
+            ("com.mediahuman.YouTube to MP3", "YouTube to MP3"),
+            ("com.sindresorhus.Velja", "Velja"),
+            ("com.winman.WinMan", "WinMan"),
+            ("com.apple.Terminal", "Terminal"),
+            ("net.kovidgoyal.kitty", "kitty"),
+            ("org.alacritty", "Alacritty"),
+            ("dev.warp.Warp-Stable", "Warp"),
+            ("com.charliemonroe.Downie-4", "Downie 4"),
+            ("com.openmedia.4kvideodownloader", "4K Video Downloader"),
+            ("org.videolan.vlc", "VLC"),
+            ("com.microsoft.VSCode", "Visual Studio Code"),
+            ("com.apple.TextEdit", "TextEdit")
+        ]
+        
+        for tool in nonBrowsers {
+            XCTAssertFalse(
+                BrowserRouterManager.isActualBrowser(bundleId: tool.bundleId, appName: tool.name),
+                "\(tool.name) (\(tool.bundleId)) should be excluded as a non-browser"
+            )
+        }
+        
+        // Verify installedBrowsers on this machine does not contain any of the excluded tools
+        BrowserRouterManager.shared.refreshInstalledBrowsers()
+        let installed = BrowserRouterManager.shared.installedBrowsers
+        for b in installed {
+            XCTAssertFalse(b.bundleId.contains("iterm"), "installedBrowsers should not contain iTerm")
+            XCTAssertFalse(b.bundleId.contains("cmux"), "installedBrowsers should not contain cmux")
+            XCTAssertFalse(b.bundleId.contains("mediahuman"), "installedBrowsers should not contain YouTube to MP3")
+            XCTAssertFalse(b.bundleId.contains("Velja"), "installedBrowsers should not contain Velja")
+            XCTAssertFalse(b.bundleId.contains("WinMan"), "installedBrowsers should not contain WinMan")
+        }
+    }
+    
+    @MainActor
+    func testSwitcherOverlayGuardsEmptyWindows() {
+        SwitcherOverlayController.shared.present(windows: [])
+        XCTAssertFalse(SwitcherOverlayController.shared.isVisible)
+        XCTAssertEqual(SwitcherOverlayController.shared.windows.count, 0)
+    }
 }

@@ -154,6 +154,17 @@ Window managers on macOS require Accessibility permissions to resize windows, sw
 
 ## Changelog
 
+### v2.0.4
+- **Alt-Tab Window Switcher & Workspace Stability**:
+  - Ensured reliable window activation on macOS 14+ across spaces by pairing `NSApp.yieldActivation(to:)` with `.activateIgnoringOtherApps` and unminimizing minimized windows when selected.
+  - Eliminated the empty "0 Open Windows" popup when switching spaces by observing `activeSpaceDidChangeNotification` to dismiss the overlay and guarding against empty window collections.
+  - Discarded 0-size and transparent captures in thumbnail generation so tiles gracefully fall back to native app icons.
+- **Refined Browser Detection & Filtering**:
+  - Filtered out non-browser tools, terminal emulators (e.g., iTerm2, cmux, Kitty, Alacritty, Warp), media converters/downloaders (e.g., "YouTube to MP3", Downie), and other utilities that register `http`/`https` URL schemes.
+  - Added a curated registry of known macOS browsers (Safari, Chrome, Firefox, Tor Browser, Opera, Arc, Brave, Edge, Zen, Orion, Vivaldi, DuckDuckGo, etc.) alongside intelligent heuristic validation.
+  - Added Tor Browser (`org.torproject.torbrowser`) to high-priority browser sorting.
+  - Automatically sanitizes existing default browser preferences if previously set to an excluded non-browser tool.
+
 ### v2.0.3
 - **Default Browser Warning & Direct System Settings Integration**:
   - Automatically checks if WinMan is set as the macOS default web browser on launch and when Browser Router is toggled on.
