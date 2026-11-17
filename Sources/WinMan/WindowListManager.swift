@@ -83,10 +83,10 @@ public final class WindowListManager {
                 continue
             }
             
-            // Check bounds: minimum real window size
+            // Basic sanity check: valid window bounds
             guard let boundsDict = dict[kCGWindowBounds as String] as? [String: Any],
                   let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
-                  bounds.width >= 100, bounds.height >= 80 else {
+                  bounds.width > 0, bounds.height > 0 else {
                 continue
             }
             
@@ -97,9 +97,12 @@ public final class WindowListManager {
 
             let isOnScreen = dict[kCGWindowIsOnscreen as String] as? Bool ?? false
             let winTitle = dict[kCGWindowName as String] as? String ?? ""
+            let cleanTitle = winTitle.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // For windows marked as not on screen, filter out small auxiliary popups, dropdowns, and search bubbles
-            if !isOnScreen && (bounds.width < 300 || bounds.height < 150) {
+            // Real document windows have titles. If a window has no title (like in-page Find
+            // bars, autocomplete dropdowns, or helper overlays), verify whether Accessibility
+            // explicitly recognizes it as a standard application window.
+            if cleanTitle.isEmpty && !isStandardAXWindow(pid: pid, windowId: windowId) {
                 continue
             }
             
@@ -211,7 +214,8 @@ public final class WindowListManager {
                     continue
                 }
                 
-                if let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, win.id, [.boundsIgnoreFraming]) {
+                if let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, win.id, [.boundsIgnoreFraming]),
+                   cgImage.width > 1 && cgImage.height > 1 {
                     let thumb = NSImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
                     
                     await MainActor.run {
@@ -231,6 +235,27 @@ public final class WindowListManager {
     }
     
     // MARK: - AX Window Lookup
+
+    /// Checks whether an application's Accessibility hierarchy exposes this window ID
+    /// as a standard document window or dialog (as opposed to an internal in-page tool or overlay).
+    private func isStandardAXWindow(pid: pid_t, windowId: CGWindowID) -> Bool {
+        let appElement = AXUIElementCreateApplication(pid)
+        var winList: AnyObject?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &winList) == .success,
+              let axWindows = winList as? [AXUIElement] else { return false }
+        for axWin in axWindows {
+            var wid: CGWindowID = 0
+            if _AXUIElementGetWindow(axWin, &wid) == .success && wid == windowId {
+                var subrole: AnyObject?
+                AXUIElementCopyAttributeValue(axWin, kAXSubroleAttribute as CFString, &subrole)
+                let subroleStr = subrole as? String ?? ""
+                return subroleStr == (kAXStandardWindowSubrole as String) ||
+                       subroleStr == (kAXDialogSubrole as String) ||
+                       subroleStr.isEmpty
+            }
+        }
+        return false
+    }
 
     /// Returns the `AXUIElement` for the specific window identified by `window.id`.
     /// Matches by `CGWindowID` first (precise), then by window bounds/frame (geometric match),
@@ -299,12 +324,24 @@ public final class WindowListManager {
             }
         }
 
-        // Activate the application process without disrupting other windows
-        if #available(macOS 14.0, *) {
-            app.activate()
-        } else {
-            app.activate(options: [.activateIgnoringOtherApps])
+        // Unminimize window if minimized
+        if let axWin = axWinToRaise {
+            var isMinVal: AnyObject?
+            if AXUIElementCopyAttributeValue(axWin, kAXMinimizedAttribute as CFString, &isMinVal) == .success {
+                let isMin = (isMinVal as? Bool) ?? (isMinVal as? NSNumber)?.boolValue ?? false
+                if isMin {
+                    AXUIElementSetAttributeValue(axWin, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+                }
+            }
         }
+
+        // Activate the application process without disrupting other windows.
+        // Use yieldActivation on macOS 14+ and activateIgnoringOtherApps so macOS
+        // does not suppress background activation requests.
+        if #available(macOS 14.0, *) {
+            NSApp.yieldActivation(to: app)
+        }
+        app.activate(options: [.activateIgnoringOtherApps])
 
         // Raise and focus the specific window via AX.
         if let axWin = axWinToRaise {

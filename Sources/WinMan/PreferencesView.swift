@@ -147,7 +147,7 @@ public struct PreferencesView: View {
                 
                 // Version & Reset
                 HStack {
-                    Text("WinMan v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.3")")
+                    Text("WinMan v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.4")")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     

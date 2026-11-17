@@ -35,12 +35,33 @@ public final class AltTabEngine {
         }
         manager.start()
         self.tapManager = manager
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
     }
     
     public func stop() {
+        NSWorkspace.shared.notificationCenter.removeObserver(
+            self,
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
         tapManager?.stop()
         self.tapManager = nil
         cancelSwitcher()
+    }
+
+    @objc private func handleSpaceChanged() {
+        if isSwitcherActive {
+            cancelSwitcher()
+        } else {
+            SwitcherOverlayController.shared.dismiss()
+            WindowHighlightPanel.shared.dismiss()
+        }
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
